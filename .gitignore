@@ -47,6 +47,8 @@ desktop-app/portable
 .sentryclirc
 
 .cert
+# Local server logs
+server.log
 # VitePress
 docs/.vitepress/cache
 docs/.vitepress/dist

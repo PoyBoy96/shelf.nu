@@ -50,16 +50,16 @@ export const createValidateFileAtom = (options: {
     });
   });
 
-// Default instance with 4MB limit
+// Default instance with 20MB limit
 export const defaultValidateFileAtom = createValidateFileAtom({
-  maxSize: DEFAULT_MAX_IMAGE_UPLOAD_SIZE, // 4MB
-  sizeErrorMessage: "Max file size is 4MB",
+  maxSize: DEFAULT_MAX_IMAGE_UPLOAD_SIZE, // 20MB
+  sizeErrorMessage: "Max file size is 20MB",
   allowedTypesErrorMessage: "Allowed file types are: PNG, JPG, JPEG, or WebP",
 });
 
-// For asset image uploads we allow 8MB
+// For asset image uploads we allow 20MB
 export const assetImageValidateFileAtom = createValidateFileAtom({
-  maxSize: ASSET_MAX_IMAGE_UPLOAD_SIZE, // 8MB
-  sizeErrorMessage: "Max file size is 8MB",
+  maxSize: ASSET_MAX_IMAGE_UPLOAD_SIZE, // 20MB
+  sizeErrorMessage: "Max file size is 20MB",
   allowedTypesErrorMessage: "Allowed file types are: PNG, JPG, JPEG, or WebP",
 });
