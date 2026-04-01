@@ -15,14 +15,56 @@ This will make sure you have a DATABASE that you are ready to connect to.
 
 ## Instructions
 
-1. Make sure you have Docker installed on your machine
-2. Use the `docker run` command and replace your environment variables:
+### Option 1: Docker Compose (recommended)
+
+1. Copy `.env.example` to `.env.docker` and fill in your Supabase/project secrets.
+2. Start shelf in production mode:
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+If port `3000` is already in use, override the host port:
+
+```bash
+SHELF_PORT=3001 docker compose --env-file .env.docker up -d --build
+```
+
+```powershell
+$env:SHELF_PORT="3001"; docker compose --env-file .env.docker up -d --build
+```
+
+3. Open http://localhost:3000 (or your `SHELF_PORT` value if overridden)
+4. Check logs if needed:
+
+```bash
+docker compose --env-file .env.docker logs -f shelf
+```
+
+5. Stop the container:
+
+```bash
+docker compose --env-file .env.docker down
+```
+
+`docker-compose.yml` builds from `apps/webapp/Dockerfile.image` and starts the production server on port `3000`.
+
+The image does not run Prisma migrations automatically. Apply them separately before starting the container if your Supabase schema is not current yet.
+
+> [!IMPORTANT]
+> `SMTP_FROM` must be a single quoted value, for example:
+> `SMTP_FROM="Team Shelf <hello@example.com>"`
+> We pass `--env-file .env.docker` explicitly to avoid parsing issues with existing local `.env` files.
+
+### Option 2: `docker run` (manual)
+
+Use `docker run` and replace your environment variables:
 
 ```bash
 docker run -d \
   --name "shelf" \
-  -e "DATABASE_URL=postgres://USER:PASSWORD@HOST:6543/DB_NAME?pgbouncer=true" \
-  -e "DIRECT_URL=postgres://USER:PASSWORD@HOST:5432/DB_NAME" \
+  -e "DATABASE_URL=postgres://USER:PASSWORD@POOLER_HOST:6543/DB_NAME?pgbouncer=true" \
+  -e "DIRECT_URL=postgres://USER:PASSWORD@SESSION_OR_DIRECT_HOST:5432/DB_NAME" \
   -e 'SUPABASE_ANON_PUBLIC=your-anon-public-key' \
   -e 'SUPABASE_SERVICE_ROLE=your-service-role-key' \
   -e 'SUPABASE_URL=https://your-instance-name.supabase.co' \
@@ -32,10 +74,11 @@ docker run -d \
   -e 'SMTP_HOST=mail.example.com' \
   -e 'SMTP_PORT=465' \
   -e 'SMTP_USER=some-email@example.com' \
-  -e 'SMTP_FROM="Your Name from shelf.nu" <your-email@shelf.nu>' \
+  -e 'SMTP_FROM=Your Name from shelf.nu <your-email@shelf.nu>' \
   -e 'SMTP_PWD=super-safe-passw0rd' \
   -e 'INVITE_TOKEN_SECRET=another-super-duper-s3cret' \
-  -p 3000:8080 \
+  -e 'PORT=3000' \
+  -p 3000:3000 \
   --restart unless-stopped \
   ghcr.io/shelf-nu/shelf.nu:latest
 ```
@@ -43,12 +86,14 @@ docker run -d \
 > [!NOTE]
 > Replace the placeholder values with your actual configuration:
 >
-> - `USER`, `PASSWORD`, `HOST`, `DB_NAME` - Your Supabase database details
+> - `USER`, `PASSWORD`, `DB_NAME` - Your Supabase database details
+> - `POOLER_HOST` - The host from the pooled connection string (usually `*.pooler.supabase.com`)
+> - `SESSION_OR_DIRECT_HOST` - The host for port `5432` (either Session pooler host or direct DB host)
 > - `your-anon-public-key`, `your-service-role-key` - From Supabase API settings
 > - `your-instance-name` - Your Supabase project reference
 > - Other tokens and secrets as needed
 
-`DATABASE_URL` and `DIRECT_URL` are mandatory when using Supabase Cloud. Learn more in the [Supabase Setup Guide](./supabase-setup.md).
+`DATABASE_URL` and `DIRECT_URL` are mandatory when using Supabase Cloud. Runtime scheduler workers use `DIRECT_URL`, so make sure it points to your port `5432` connection (Session pooler or direct DB host). Learn more in the [Supabase Setup Guide](./supabase-setup.md).
 
 ## Development
 
@@ -77,6 +122,8 @@ docker run -d \
    -e DATABASE_URL="your-database-url" \
    -e DIRECT_URL="your-direct-url" \
    -e SUPABASE_URL="your-supabase-url" \
+   -e PORT="3000" \
+   -p 3000:3000 \
    shelf-local
 ```
 

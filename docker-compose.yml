@@ -1,0 +1,15 @@
+services:
+  shelf:
+    build:
+      context: .
+      dockerfile: apps/webapp/Dockerfile.image
+    image: shelf-nu-local:latest
+    container_name: shelf
+    env_file:
+      - .env.docker
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      - "${SHELF_PORT:-3000}:3000"
+    restart: unless-stopped

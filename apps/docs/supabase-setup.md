@@ -38,8 +38,10 @@ This guide will walk you through setting up Supabase for your Shelf.nu applicati
 # Connection pooling (for app runtime)
 DATABASE_URL="postgres://postgres.xxxxx:[YOUR-PASSWORD]@xxx.pooler.supabase.com:6543/postgres?pgbouncer=true"
 
-# Direct connection (for migrations)
-DIRECT_URL="postgres://postgres.xxxxx:[YOUR-PASSWORD]@xxx.supabase.com:5432/postgres"
+# Session/Direct connection (for migrations and scheduler workers)
+DIRECT_URL="postgres://postgres.xxxxx:[YOUR-PASSWORD]@xxx.pooler.supabase.com:5432/postgres"
+# Alternative direct DB host (requires IPv6 or Supabase IPv4 add-on):
+# DIRECT_URL="postgres://postgres.xxxxx:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres?sslmode=require"
 ```
 
 > 💡 **Important**: Replace `[YOUR-PASSWORD]` with your actual database password
@@ -206,7 +208,8 @@ Your `.env` at the **monorepo root** should now look like this:
 ```bash
 # Database connections
 DATABASE_URL="postgres://postgres.xxxxx:[YOUR-PASSWORD]@xxx.pooler.supabase.com:6543/postgres?pgbouncer=true"
-DIRECT_URL="postgres://postgres.xxxxx:[YOUR-PASSWORD]@xxx.supabase.com:5432/postgres"
+DIRECT_URL="postgres://postgres.xxxxx:[YOUR-PASSWORD]@xxx.pooler.supabase.com:5432/postgres"
+# DIRECT_URL="postgres://postgres.xxxxx:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres?sslmode=require" # direct host alternative
 
 # Supabase API
 SUPABASE_URL="https://your-project-ref.supabase.co"

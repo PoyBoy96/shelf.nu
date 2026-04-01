@@ -51,6 +51,6 @@ COPY --from=build /src/apps/webapp/docker-entrypoint.sh /src/apps/webapp/docker-
 
 WORKDIR /src/apps/webapp
 
-RUN chmod +x /src/apps/webapp/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /src/apps/webapp/docker-entrypoint.sh && chmod +x /src/apps/webapp/docker-entrypoint.sh
 
 ENTRYPOINT [ "/src/apps/webapp/docker-entrypoint.sh" ]
