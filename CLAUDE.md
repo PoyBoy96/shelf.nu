@@ -4,32 +4,79 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Essential Commands
 
-### Development
+This is a **pnpm + Turborepo monorepo**. Use `pnpm` instead of `npm`.
 
-- `npm run dev` - Start development server on port 3000
-- `npm run test -- --run` - Run Vitest unit tests (always use `--run` flag to prevent watch mode)
-- `npm run validate` - Run all tests, linting, and typecheck (use before commits)
+Root-level convenience scripts follow the `<app>:<task>` pattern (e.g., `webapp:dev`, `docs:build`). When adding new apps that require dev servers or build steps, add matching `<app>:<task>` shortcuts to the root `package.json`.
 
-**IMPORTANT:** When running tests manually, ALWAYS use the `--run` flag (e.g., `npm run test -- --run`) to run tests once and exit. Without `--run`, Vitest runs in watch mode which consumes excessive memory. Never run multiple test processes in parallel as this can freeze the system.
+### Webapp
+
+- `pnpm webapp:dev` - Start webapp dev server on port 3000
+- `pnpm webapp:build` - Build webapp for production
+- `pnpm webapp:test -- --run` - Run Vitest unit tests (always use `--run` flag)
+- `pnpm webapp:validate` - Run all tests, linting, and typecheck (use before commits)
+- `pnpm webapp:start` - Start webapp production server locally (loads `.env` from monorepo root)
+
+**IMPORTANT:** When running tests manually, ALWAYS use the `--run` flag to run tests once and exit. Without `--run`, Vitest runs in watch mode which consumes excessive memory. Never run multiple test processes in parallel as this can freeze the system.
+
+### Docs
+
+- `pnpm docs:dev` - Start docs dev server on port 5173
+- `pnpm docs:build` - Build docs for production
+- `pnpm docs:preview` - Preview docs production build on port 5174
 
 ### Code Quality
 
-- `npm run lint` - ESLint checking
-- `npm run lint:fix` - Fix ESLint issues automatically
-- `npm run typecheck` - TypeScript type checking
-- `npm run format` - Prettier code formatting
-- `npm run precommit` - Complete pre-commit validation
+- `pnpm webapp:lint` - ESLint checking (webapp only)
+- `pnpm turbo lint` - ESLint checking (all packages)
+- `pnpm --filter @shelf/webapp lint:fix` - Fix ESLint issues automatically
+- `pnpm turbo typecheck` - TypeScript type checking (all packages)
+- `pnpm run format` - Prettier code formatting (root-level)
+- `pnpm --filter @shelf/webapp validate` - Complete pre-commit validation
 
 ### Database
 
-- `npm run setup` - Generate Prisma client and deploy migrations
-- `npm run db:generate-type` - Generate Prisma client after schema changes
-- `npm run db:prepare-migration` - Create new database migration
+All database commands run via the `@shelf/database` package (`packages/database/`). This package owns the Prisma schema, migrations, and client generation. The webapp does **not** manage database concerns directly — it consumes `@shelf/database` as a workspace dependency.
+
+- `pnpm db:generate` - Generate Prisma client after schema changes
+- `pnpm db:prepare-migration` - Create new database migration
+- `pnpm db:deploy-migration` - Apply migrations and regenerate client
+- `pnpm db:reset` - Reset database (destructive!)
+- `pnpm webapp:setup` - Generate Prisma client + deploy migrations (for initial setup/onboarding)
 
 ### Build & Production
 
-- `npm run build` - Build for **production**
-- `npm run start` - Start production server
+- `pnpm turbo build` - Build all packages and apps for **production**
+- `pnpm webapp:start` - Start production server locally (loads `.env` from monorepo root)
+- `pnpm run start` (inside `apps/webapp/`) - Used by Docker/Fly (env vars from platform)
+
+## Monorepo Structure
+
+This is a **pnpm workspaces + Turborepo** monorepo. All packages are defined in `pnpm-workspace.yaml` and orchestrated by `turbo.json`.
+
+### Apps
+
+| Package         | Path           | Description                                                                                                           |
+| --------------- | -------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `@shelf/webapp` | `apps/webapp/` | Remix web application — the main product. Contains routes, components, modules (business logic), and integrations.    |
+| `@shelf/docs`   | `apps/docs/`   | Developer documentation site (VitePress). Contains guides on local development, database triggers, architecture, etc. |
+
+### Packages
+
+| Package           | Path                 | Description                                                                                                                                                                                                                                                                                                                 |
+| ----------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@shelf/database` | `packages/database/` | **Owns all database concerns**: Prisma schema (`prisma/schema.prisma`), migrations (`prisma/migrations/`), and the `createDatabaseClient()` factory (`src/client.ts`). All `db:*` root scripts delegate to this package. The webapp imports from this package — it does **not** run Prisma commands directly in production. |
+
+### Tooling
+
+| Package                    | Path                  | Description                                                           |
+| -------------------------- | --------------------- | --------------------------------------------------------------------- |
+| `@shelf/typescript-config` | `tooling/typescript/` | Shared `tsconfig` base configurations extended by all other packages. |
+
+### How packages connect
+
+- **Webapp → Database**: The webapp depends on `@shelf/database` (workspace dependency). Its `app/database/db.server.ts` is a thin wrapper that calls `createDatabaseClient()` from `@shelf/database`. All 135+ `~/database/db.server` imports in the webapp work unchanged.
+- **Webapp → Prisma types**: The webapp's `build`, `typecheck`, and `validate` scripts run `prisma generate` to ensure types are available. In CI, this is done via `pnpm --filter @shelf/database run db:generate`.
+- **Vite config**: The webapp's `vite.config.ts` includes `ssr.noExternal: ["@shelf/database"]` so Vite bundles it correctly, and aliases `.prisma/client/index-browser` for browser builds.
 
 ## Architecture Overview
 
@@ -46,14 +93,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Key Directory Structure
 
 ```
-app/
-├── routes/          # Remix file-based routes (using remix-flat-routes)
-├── modules/         # Business logic services
-├── components/      # Reusable React components
-├── database/        # Prisma schema and migrations
-├── atoms/           # Jotai state atoms
-├── utils/           # Utility functions
-└── integrations/    # Third-party service integrations
+shelf/
+├── turbo.json                       # Turborepo pipeline config
+├── pnpm-workspace.yaml              # Workspace package definitions
+├── packages/
+│   └── database/                    # @shelf/database — Prisma client + types
+│       ├── prisma/schema.prisma
+│       ├── prisma/migrations/
+│       └── src/client.ts            # createDatabaseClient() factory
+├── apps/
+│   └── webapp/                      # @shelf/webapp — Remix app
+│       ├── app/
+│       │   ├── routes/              # File-based routes (remix-flat-routes)
+│       │   ├── modules/             # Business logic services
+│       │   ├── components/          # Reusable React components
+│       │   ├── database/db.server.ts # Thin re-export from @shelf/database
+│       │   ├── atoms/               # Jotai state atoms
+│       │   ├── utils/               # Utility functions
+│       │   └── integrations/        # Third-party service integrations
+│       └── server/                  # Hono server entry + middleware
+└── tooling/
+    └── typescript/                  # Shared tsconfig bases
 ```
 
 ### Route Organization
@@ -71,24 +131,79 @@ app/
 - **Server State**: Remix loaders/actions for data fetching and mutations
 - **Client State**: Jotai atoms for complex UI state
 - **URL State**: Search params for filters, pagination, and bookmarks
+- **Optimistic UI & nProgress**: When implementing optimistic UI with fetchers, add the fetcher key to the `excludeFetchers` array in `apps/webapp/app/hooks/use-nprogress.ts` so the global loading bar does not show for operations that already provide instant visual feedback.
 
 ### Data Layer
 
-- **Prisma Schema**: Located in `app/database/schema.prisma`
+- **Prisma Schema**: Located in `packages/database/prisma/schema.prisma` (owned by `@shelf/database`)
+- **Client Generation**: Always run via `@shelf/database` (`pnpm db:generate`), never from the webapp directly
+- **DB Client**: `@shelf/database` exports `createDatabaseClient()` factory; the webapp's `app/database/db.server.ts` is a thin wrapper
 - **Row Level Security (RLS)**: Implemented via Supabase policies
 - **Full-text Search**: PostgreSQL search across assets and bookings
 
 ### Component Architecture
 
-- **Modular Services**: Business logic separated into `app/modules/`
-- **Reusable Components**: Organized by feature/domain in `app/components/`
+- **Modular Services**: Business logic separated into `apps/webapp/app/modules/`
+- **Reusable Components**: Organized by feature/domain in `apps/webapp/app/components/`
 - **Form Handling**: Remix Form with client-side validation
 - **UI Primitives**: Radix UI components with Tailwind styling
-- **Date Display**: Always use the `DateS` component (`app/components/shared/date.tsx`) for displaying dates in the UI. Do not use raw `toLocaleDateString()` or other custom date formatting.
+- **Date Display**: Always use the `DateS` component (`apps/webapp/app/components/shared/date.tsx`) for displaying dates in the UI. Do not use raw `toLocaleDateString()` or other custom date formatting.
+
+### Email Templates
+
+All HTML emails must follow the design established in
+`app/emails/stripe/audit-trial-welcome.tsx`:
+
+- **React Email components**: `Html`, `Head`, `Container`, `Text`, `Button`, `Link`
+- **LogoForEmail** at the top of every email
+- **Shared styles** from `app/emails/styles.ts` (`styles.p`, `styles.h2`, `styles.button`, `styles.li`)
+- **Personalized greeting** with user's first name: `Hey {firstName},`
+- **CTA buttons** using `styles.button` (not bare links)
+- **Info/warning boxes**: yellow background `#FFF8E1` + border `#FFE082` for important notices
+- **Both HTML and plain text exports**: HTML via `render()`, plain text as template literal
+- **Send wrapper function** with `try/catch` + `Logger.error` + `ShelfError`
+- **Closing**: `The Shelf Team`
+
+### Button Type Prop (Required)
+
+Every `<Button>` that renders as a native `<button>` element **must** have an explicit `type` prop. This is enforced by the `local-rules/require-button-type` ESLint rule.
+
+- Use `type="submit"` for buttons that submit a form
+- Use `type="button"` for all other buttons (modals, toggles, actions, etc.)
+- Buttons with `to=` (link buttons) or `as="a"`/`as="span"` do not need `type`
+
+```typescript
+// ❌ Bad - missing type
+<Button onClick={handler}>Cancel</Button>
+
+// ✅ Good
+<Button type="button" onClick={handler}>Cancel</Button>
+<Button type="submit" disabled={disabled}>Save</Button>
+<Button to="/home">Home</Button>  // Link button, no type needed
+```
+
+**Why:** The HTML spec defaults `<button>` to `type="submit"`, which can cause accidental form submissions. Explicit types prevent this and make intent clear.
+
+### Disabled State for Form Submissions
+
+Always use the `useDisabled` hook from `~/hooks/use-disabled` to disable buttons during form submission. Do **not** use `useNavigation` directly to check `navigation.state`.
+
+```typescript
+import { useDisabled } from "~/hooks/use-disabled";
+
+// Inside component:
+const disabled = useDisabled();
+// For fetcher forms, pass the fetcher:
+const disabled = useDisabled(fetcher);
+
+<Button type="submit" disabled={disabled}>
+  {disabled ? "Saving..." : "Save"}
+</Button>
+```
 
 ### Deprecated Components
 
-- **DropdownMenu** (`app/components/shared/dropdown.tsx`): Do not use for new features. Instead, use `Popover` from `@radix-ui/react-popover` with custom select behavior. See `app/components/assets/assets-index/advanced-filters/field-selector.tsx` for a good example implementation.
+- **DropdownMenu** (`apps/webapp/app/components/shared/dropdown.tsx`): Do not use for new features. Instead, use `Popover` from `@radix-ui/react-popover` with custom select behavior. See `apps/webapp/app/components/assets/assets-index/advanced-filters/field-selector.tsx` for a good example implementation.
 
 ### Form Validation Pattern (Required)
 
@@ -179,8 +294,8 @@ export default function MyForm() {
 
 **Working Examples:**
 
-- Reminder dialog: `app/components/asset-reminder/set-or-edit-reminder-dialog.tsx`
-- Booking form: `app/components/booking/forms/edit-booking-form.tsx`
+- Reminder dialog: `apps/webapp/app/components/asset-reminder/set-or-edit-reminder-dialog.tsx`
+- Booking form: `apps/webapp/app/components/booking/forms/edit-booking-form.tsx`
 
 ### Accessibility
 
@@ -192,6 +307,52 @@ All UI implementations must meet **WCAG 2.1 AA** as a minimum. This includes:
 - Use `aria-describedby` to link inputs to helper/error text
 - Meaningful alt text for images and icons
 - Focus indicators must be visible
+
+### Code Documentation (Required)
+
+All code must include inline documentation and JSDoc comments. This applies to every new file and every new export.
+
+**File-level documentation:**
+
+- Every file must start with a JSDoc block explaining its purpose, responsibilities, and how it fits into the broader system
+- Include `@see` references to related files (routes, services, components) where helpful
+
+**Function/component-level documentation:**
+
+- Every exported function, component, and type must have a JSDoc comment
+- Describe what it does, its parameters (`@param`), return values (`@returns`), and thrown errors (`@throws`)
+- For React components, document the props
+
+**Inline comments:**
+
+- Add inline comments to explain non-obvious logic, business rules, or important distinctions
+- Especially important: when a variable name could be confused (e.g., `userId` referring to different users in different contexts), add a clarifying comment
+- Explain "why" rather than "what" — the code shows what, comments explain why
+
+**Example:**
+
+```typescript
+/**
+ * User Note Service
+ *
+ * Handles CRUD operations for admin notes on user profiles.
+ * Notes are workspace-scoped: a note in Workspace A is invisible in Workspace B.
+ *
+ * @see {@link file://./../../routes/_layout+/settings.team.users.$userId.note.tsx}
+ */
+
+/** Arguments for creating a user note */
+type CreateUserNoteArgs = { ... };
+
+/**
+ * Creates a new note on a user's profile within a specific workspace.
+ *
+ * @param args - The note content, target user, organization, and optional author
+ * @returns The created UserNote record
+ * @throws {ShelfError} If the database operation fails
+ */
+export async function createUserNote(args: CreateUserNoteArgs) { ... }
+```
 
 ### Code Abstraction
 
@@ -222,18 +383,18 @@ When implementing bulk operations that work across multiple pages of filtered da
 
 **Key Implementation Points:**
 
-- Use `isSelectingAllItems()` from `app/utils/list.ts` to detect select all
+- Use `isSelectingAllItems()` from `apps/webapp/app/utils/list.ts` to detect select all
 - Always pass `currentSearchParams` alongside `assetIds` when ALL_SELECTED_KEY is present
 - Use `getAssetsWhereInput({ organizationId, currentSearchParams })` to build Prisma where clause
 - Set `takeAll: true` to remove pagination limits
 
 **Working Examples:**
 
-- Export assets: `app/components/assets/assets-index/export-assets-button.tsx`
-- Bulk delete: `app/routes/_layout+/assets._index.tsx` (action)
-- QR download: `app/routes/api+/assets.get-assets-for-bulk-qr-download.ts`
+- Export assets: `apps/webapp/app/components/assets/assets-index/export-assets-button.tsx`
+- Bulk delete: `apps/webapp/app/routes/_layout+/assets._index.tsx` (action)
+- QR download: `apps/webapp/app/routes/api+/assets.get-assets-for-bulk-qr-download.ts`
 
-**📖 Full Documentation:** See [docs/select-all-pattern.md](./docs/select-all-pattern.md) for detailed implementation guide, code examples, and common pitfalls.
+**📖 Full Documentation:** See [docs/select-all-pattern.md](./apps/docs/select-all-pattern.md) for detailed implementation guide, code examples, and common pitfalls.
 
 ## Testing Approach
 
@@ -241,11 +402,11 @@ When implementing bulk operations that work across multiple pages of filtered da
 
 - Tests co-located with source files
 - Happy DOM environment for React component testing
-- Run with `npm run test` or `npm run test:cov` for coverage
+- Run with `pnpm webapp:test -- --run` or `pnpm --filter @shelf/webapp test:cov` for coverage
 
 ### Validation Pipeline
 
-Always run `npm run validate` before committing - this runs:
+Always run `pnpm webapp:validate` before committing - this runs:
 
 1. Prisma type generation
 2. ESLint with auto-fix
@@ -274,30 +435,31 @@ Always run `npm run validate` before committing - this runs:
 
 #### Organizing Mocks and Factories
 
-- **Test files**: Co-located with source files (e.g., `app/modules/user/service.server.test.ts`)
-- **Shared mocks**: Place in `test/mocks/` directory, organized by domain (remix.tsx, database.ts)
-- **Factories**: Place in `test/factories/` directory for generating test data
-- **MSW handlers**: Keep in root `mocks/` directory for API mocking
+- **Test files**: Co-located with source files (e.g., `apps/webapp/app/modules/user/service.server.test.ts`)
+- **Shared mocks**: Place in `apps/webapp/test/mocks/` directory, organized by domain (remix.tsx, database.ts)
+- **Factories**: Place in `apps/webapp/test/factories/` directory for generating test data
+- **MSW handlers**: Keep in `apps/webapp/mocks/` directory for API mocking
 
 Example directory structure:
 
 ```
-app/
-├── modules/
-│   └── user/
-│       ├── service.server.ts
-│       └── service.server.test.ts  # Co-located test
-test/
-├── mocks/
-│   ├── remix.tsx          # Remix hook mocks
-│   └── database.ts        # Database/Prisma mocks
-└── factories/
-    ├── user.ts            # User factory
-    ├── asset.ts           # Asset factory
-    └── index.ts           # Export all
-mocks/                      # MSW API handlers (kept at root)
-├── handlers.ts
-└── index.ts
+apps/webapp/
+├── app/
+│   ├── modules/
+│   │   └── user/
+│   │       ├── service.server.ts
+│   │       └── service.server.test.ts  # Co-located test
+├── test/
+│   ├── mocks/
+│   │   ├── remix.tsx          # Remix hook mocks
+│   │   └── database.ts        # Database/Prisma mocks
+│   └── factories/
+│       ├── user.ts            # User factory
+│       ├── asset.ts           # Asset factory
+│       └── index.ts           # Export all
+└── mocks/                      # MSW API handlers
+    ├── handlers.ts
+    └── index.ts
 ```
 
 #### Path Aliases (Configured)
@@ -305,8 +467,8 @@ mocks/                      # MSW API handlers (kept at root)
 Path aliases are configured in `vitest.config.ts` for easy imports:
 
 ```typescript
-import { createUser } from "@factories"; // → test/factories/index.ts
-import { createRemixMocks } from "@mocks/remix"; // → test/mocks/remix.tsx
+import { createUser } from "@factories"; // → apps/webapp/test/factories/index.ts
+import { createRemixMocks } from "@mocks/remix"; // → apps/webapp/test/mocks/remix.tsx
 ```
 
 #### Factories & Test Data
@@ -335,6 +497,8 @@ Before committing tests:
 
 ## Environment Configuration
 
+The `.env` file lives at the **monorepo root** (not inside `apps/webapp/`). Copy `.env.example` to `.env` and fill in your values. Vite, Prisma, and all `db:*` commands load from this single root file.
+
 ### Required Environment Variables
 
 - `DATABASE_URL` and `DIRECT_URL` - PostgreSQL connections
@@ -349,20 +513,21 @@ Before committing tests:
 
 ## Important Files to Understand
 
-1. **`app/database/schema.prisma`** - Complete database schema and relationships
-2. **`app/config/shelf.config.ts`** - Application configuration and constants
-3. **`app/modules/`** - Core business logic services (asset, booking, user, etc.)
-4. **`app/routes/_layout+/`** - Main authenticated application routes
-5. **`vite.config.ts`** - Build configuration with Remix and development settings
+1. **`packages/database/prisma/schema.prisma`** - Complete database schema and relationships
+2. **`apps/webapp/app/config/shelf.config.ts`** - Application configuration and constants
+3. **`apps/webapp/app/modules/`** - Core business logic services (asset, booking, user, etc.)
+4. **`apps/webapp/app/routes/_layout+/`** - Main authenticated application routes
+5. **`apps/webapp/vite.config.ts`** - Build configuration with Remix and development settings
+6. **`packages/database/src/client.ts`** - Database client factory (shared across apps)
 
 ## Development Workflow
 
-1. **Database Changes**: Modify `schema.prisma` → `npm run db:prepare-migration` → `npm run db:deploy`
-2. **New Features**: Create in `app/modules/` for business logic, `app/routes/` for pages
-3. **Component Updates**: Follow existing patterns in `app/components/`
+1. **Database Changes**: Modify `packages/database/prisma/schema.prisma` → `pnpm db:prepare-migration` → `pnpm db:deploy-migration` (runs via `@shelf/database`)
+2. **New Features**: Create in `apps/webapp/app/modules/` for business logic, `apps/webapp/app/routes/` for pages
+3. **Component Updates**: Follow existing patterns in `apps/webapp/app/components/`
 4. **Testing**: Write unit tests for utilities  
    Follow the testing conventions outlined in the Writing & Organizing Tests section to ensure consistent, behavior-driven testing and minimal mocking.
-5. **Pre-commit**: Always run `npm run validate` to ensure code quality
+5. **Pre-commit**: Always run `pnpm webapp:validate` to ensure code quality
 
 ## Git and Version control
 
