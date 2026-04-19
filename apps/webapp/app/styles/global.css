@@ -1,12 +1,116 @@
 :root {
-  --tw-ring-color: #eaf2ff;
-  --sidebar-background: theme(colors.white);
+  --color-white: 255 255 255;
+  --color-muted: 234 236 240;
+  --color-gray-25: 252 252 253;
+  --color-gray-50: 249 250 251;
+  --color-gray-100: 242 244 247;
+  --color-gray-200: 234 236 240;
+  --color-gray-300: 208 213 221;
+  --color-gray-400: 152 162 179;
+  --color-gray-500: 102 112 133;
+  --color-gray-600: 71 84 103;
+  --color-gray-700: 52 64 84;
+  --color-gray-800: 29 41 57;
+  --color-gray-900: 16 24 40;
+  --color-primary: 239 104 32;
+  --color-primary-25: 254 250 245;
+  --color-primary-50: 254 246 238;
+  --color-primary-100: 253 234 215;
+  --color-primary-200: 249 219 175;
+  --color-primary-300: 247 178 122;
+  --color-primary-400: 243 135 68;
+  --color-primary-500: 239 104 32;
+  --color-primary-600: 239 104 32;
+  --color-primary-700: 239 104 32;
+  --color-primary-800: 147 47 25;
+  --color-primary-900: 119 41 23;
+  --color-error-50: 254 243 242;
+  --color-error-100: 254 228 226;
+  --color-error-600: 217 45 32;
+  --color-success-50: 236 253 243;
+  --color-success-100: 209 250 223;
+  --color-success-600: 3 152 85;
+  --color-ring: 234 242 255;
+  --tw-ring-color: rgb(var(--color-ring) / 1);
+  --sidebar-background: rgb(var(--color-white));
   --sidebar-foreground: 240 5.3% 26.1%;
   --sidebar-primary: 240 5.9% 10%;
   --sidebar-primary-foreground: 0 0% 98%;
   --sidebar-accent: 240 4.8% 95.9%;
   --sidebar-accent-foreground: 240 5.9% 10%;
   --sidebar-border: 220 13% 91%;
+}
+
+[data-theme="dark"] {
+  --color-white: 15 27 45;
+  --color-muted: 36 56 79;
+  --color-gray-25: 11 23 40;
+  --color-gray-50: 16 29 46;
+  --color-gray-100: 23 38 59;
+  --color-gray-200: 36 56 79;
+  --color-gray-300: 51 75 99;
+  --color-gray-400: 104 124 146;
+  --color-gray-500: 141 162 184;
+  --color-gray-600: 183 199 216;
+  --color-gray-700: 215 229 242;
+  --color-gray-800: 232 241 249;
+  --color-gray-900: 248 250 252;
+  --color-primary: 125 211 252;
+  --color-primary-25: 8 28 49;
+  --color-primary-50: 12 43 69;
+  --color-primary-100: 14 58 90;
+  --color-primary-200: 19 78 119;
+  --color-primary-300: 56 189 248;
+  --color-primary-400: 125 211 252;
+  --color-primary-500: 125 211 252;
+  --color-primary-600: 56 189 248;
+  --color-primary-700: 14 165 233;
+  --color-primary-800: 186 230 253;
+  --color-primary-900: 224 242 254;
+  --color-ring: 12 43 69;
+  --sidebar-background: rgb(var(--color-gray-25));
+  --sidebar-foreground: 204 100% 97%;
+  --sidebar-primary: 199 95% 74%;
+  --sidebar-primary-foreground: 217 72% 13%;
+  --sidebar-accent: 212 43% 18%;
+  --sidebar-accent-foreground: 204 100% 97%;
+  --sidebar-border: 210 32% 27%;
+}
+
+[data-theme="light"] {
+  --color-white: 255 255 255;
+  --color-muted: 219 234 254;
+  --color-gray-25: 248 251 255;
+  --color-gray-50: 241 247 255;
+  --color-gray-100: 226 239 253;
+  --color-gray-200: 203 224 247;
+  --color-gray-300: 166 194 226;
+  --color-gray-400: 103 132 166;
+  --color-gray-500: 75 102 136;
+  --color-gray-600: 47 74 110;
+  --color-gray-700: 31 57 91;
+  --color-gray-800: 22 44 74;
+  --color-gray-900: 11 31 55;
+  --color-primary: 14 165 233;
+  --color-primary-25: 245 251 255;
+  --color-primary-50: 240 249 255;
+  --color-primary-100: 224 242 254;
+  --color-primary-200: 186 230 253;
+  --color-primary-300: 125 211 252;
+  --color-primary-400: 56 189 248;
+  --color-primary-500: 14 165 233;
+  --color-primary-600: 2 132 199;
+  --color-primary-700: 3 105 161;
+  --color-primary-800: 7 89 133;
+  --color-primary-900: 12 74 110;
+  --color-ring: 224 242 254;
+  --sidebar-background: rgb(var(--color-white));
+  --sidebar-foreground: 207 67% 13%;
+  --sidebar-primary: 199 89% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 204 100% 97%;
+  --sidebar-accent-foreground: 207 67% 13%;
+  --sidebar-border: 212 65% 88%;
 }
 
 html {
@@ -63,7 +167,7 @@ p {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid #ccc;
+  border: 2px solid rgb(var(--color-gray-300) / 1);
   @apply border-t-primary-500;
   animation: spinner 0.6s linear infinite;
 }
@@ -84,11 +188,11 @@ dialog {
 }
 
 .dialog > .scrollable-content::-webkit-scrollbar-thumb {
-  @apply rounded-br-lg rounded-tr-lg bg-[#a0a0a0];
+  @apply rounded-br-lg rounded-tr-lg bg-gray-400;
 }
 
 .dialog > .scrollable-content::-webkit-scrollbar-track {
-  @apply rounded-br-lg rounded-tr-lg bg-[#e2e2e2];
+  @apply rounded-br-lg rounded-tr-lg bg-gray-200;
 }
 
 .responsive-filters .form-wrapper {
@@ -115,7 +219,7 @@ dialog {
     drop-shadow(0px 1px 3px rgba(16, 24, 40, 0.1));
 }
 .required-input-label:after {
-  color: #e32;
+  @apply text-error-600;
   content: " *";
   display: inline;
 }
@@ -213,7 +317,11 @@ dialog {
   top: 8px;
   bottom: 11px;
   width: 60px;
-  background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, #fff 100%);
+  background: linear-gradient(
+    to right,
+    rgb(var(--color-white) / 0) 0%,
+    rgb(var(--color-white) / 1) 100%
+  );
   pointer-events: none;
   z-index: 1;
   display: none;

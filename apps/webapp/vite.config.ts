@@ -39,6 +39,7 @@ if (!existsSync(prismaClientIndexBrowser)) {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, workspaceRoot, "");
   const devHost = env.DEV_HOST || "0.0.0.0";
+  const devPort = Number(env.DEV_PORT || env.PORT || 3001);
   const useHttps = env.DEV_HTTPS !== "false";
   const allowedHosts =
     env.DEV_ALLOWED_HOSTS === "all" || !env.DEV_ALLOWED_HOSTS
@@ -56,7 +57,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       host: devHost,
-      port: 3000,
+      port: Number.isFinite(devPort) ? devPort : 3001,
       strictPort: true,
       https: httpsConfig,
       allowedHosts,
@@ -66,6 +67,8 @@ export default defineConfig(({ mode }) => {
           "./app/root.tsx",
           "./app/routes/**/*.tsx",
           "./app/routes/**/*.ts",
+          "!./app/routes/**/*.test.ts",
+          "!./app/routes/**/*.test.tsx",
           "!./app/routes/**/*.test.server.ts",
         ],
       },
@@ -102,11 +105,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       cjsInterop({
         // List of CJS dependencies that require interop
-        dependencies: [
-          "react-microsoft-clarity",
-          "@markdoc/markdoc",
-          "react-to-print",
-        ],
+        dependencies: ["react-microsoft-clarity", "@markdoc/markdoc"],
       }),
       reactRouterHonoServer({
         serverEntryPoint: "./server/index.ts",

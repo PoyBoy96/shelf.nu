@@ -1,6 +1,17 @@
 import type { SVGProps } from "react";
 import { CalendarPlus } from "lucide-react";
 
+const themeGray100 = "rgb(var(--color-gray-100) / 1)";
+const themeWhite = "rgb(var(--color-white) / 1)";
+const themePrimary50 = "rgb(var(--color-primary-50) / 1)";
+const themePrimary100 = "rgb(var(--color-primary-100) / 1)";
+const themeSuccess50 = "rgb(var(--color-success-50) / 1)";
+const themeSuccess100 = "rgb(var(--color-success-100) / 1)";
+const themeSuccess600 = "rgb(var(--color-success-600) / 1)";
+const themeError50 = "rgb(var(--color-error-50) / 1)";
+const themeError100 = "rgb(var(--color-error-100) / 1)";
+const themeError600 = "rgb(var(--color-error-600) / 1)";
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -33,7 +44,7 @@ export function HomeIcon(props: SVGProps<SVGSVGElement>) {
     >
       <path
         d="M5.667 13.167h6.666M8.181 1.303 2.53 5.7c-.377.294-.566.441-.702.625-.12.163-.21.347-.265.542-.062.22-.062.46-.062.938v6.03c0 .933 0 1.4.182 1.756.16.314.414.569.728.729.357.181.823.181 1.757.181h9.666c.934 0 1.4 0 1.757-.181.314-.16.569-.415.728-.729.182-.356.182-.823.182-1.757V7.804c0-.478 0-.718-.062-.938a1.665 1.665 0 0 0-.265-.542c-.136-.184-.325-.33-.702-.625L9.819 1.303c-.293-.227-.44-.341-.601-.385a.833.833 0 0 0-.436 0c-.161.044-.308.158-.6.385Z"
-        stroke="#667085"
+        stroke="currentColor"
         strokeWidth={1.667}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -182,7 +193,7 @@ export function MailIcon(props: SVGProps<SVGSVGElement>) {
     >
       <path
         d="M1.667 3.833 8.47 8.596c.55.386.826.579 1.126.653.265.066.541.066.806 0 .3-.074.575-.267 1.126-.653l6.804-4.763M5.667 14.667h8.666c1.4 0 2.1 0 2.635-.273a2.5 2.5 0 0 0 1.093-1.092c.272-.535.272-1.235.272-2.635V5.333c0-1.4 0-2.1-.272-2.635a2.5 2.5 0 0 0-1.093-1.092c-.535-.273-1.235-.273-2.635-.273H5.667c-1.4 0-2.1 0-2.635.273a2.5 2.5 0 0 0-1.093 1.092c-.272.535-.272 1.235-.272 2.635v5.334c0 1.4 0 2.1.272 2.635a2.5 2.5 0 0 0 1.093 1.092c.534.273 1.235.273 2.635.273Z"
-        stroke="#667085"
+        stroke="currentColor"
         strokeWidth={1.667}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -200,10 +211,10 @@ export function FileUploadIcon(props: SVGProps<SVGSVGElement>) {
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <rect x={3} y={3} width={40} height={40} rx={20} fill="#F2F4F7" />
+      <rect x={3} y={3} width={40} height={40} rx={20} fill={themeGray100} />
       <path
         d="M19.667 26.333 23 23m0 0 3.333 3.333M23 23v7.5m6.667-3.548a4.583 4.583 0 0 0-2.917-8.12.516.516 0 0 1-.445-.25 6.25 6.25 0 1 0-9.816 7.58"
-        stroke="#475467"
+        stroke="rgb(var(--color-gray-600) / 1)"
         strokeWidth={1.667}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -214,7 +225,7 @@ export function FileUploadIcon(props: SVGProps<SVGSVGElement>) {
         width={40}
         height={40}
         rx={20}
-        stroke="#F9FAFB"
+        stroke={themeWhite}
         strokeWidth={6}
       />
     </svg>
@@ -242,11 +253,11 @@ export function ImageFileIcon({
         width={32}
         height={32}
         rx={16}
-        fill={error ? "#FEE4E2" : "#FDEAD7"}
+        fill={error ? themeError100 : themePrimary100}
       />
       <path
         d="M20.8 24h-6.18c-.403 0-.605 0-.698-.08a.333.333 0 0 1-.116-.28c.01-.122.152-.265.438-.55l5.668-5.67c.264-.263.396-.395.549-.445a.667.667 0 0 1 .412 0c.152.05.284.182.548.446L24 20v.8M20.8 24c1.12 0 1.68 0 2.108-.218a2 2 0 0 0 .874-.874C24 22.48 24 21.92 24 20.8M20.8 24h-5.6c-1.12 0-1.68 0-2.108-.218a2 2 0 0 1-.874-.874C12 22.48 12 21.92 12 20.8v-5.6c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C13.52 12 14.08 12 15.2 12h5.6c1.12 0 1.68 0 2.108.218a2 2 0 0 1 .874.874C24 13.52 24 14.08 24 15.2v5.6m-7-5.133a1.333 1.333 0 1 1-2.667 0 1.333 1.333 0 0 1 2.667 0Z"
-        stroke={error ? "#D92D20" : "currentColor"}
+        stroke={error ? themeError600 : "currentColor"}
         strokeWidth={1.333}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -257,7 +268,7 @@ export function ImageFileIcon({
         width={32}
         height={32}
         rx={16}
-        stroke={error ? "#FEF3F2" : "#FEF6EE"}
+        stroke={error ? themeError50 : themePrimary50}
         strokeWidth={4}
       />
     </svg>
@@ -283,7 +294,7 @@ export function CheckmarkIcon(props: SVGProps<SVGSVGElement>) {
       />
       <path
         d="M11.333 5.5 6.75 10.083 4.667 8"
-        stroke="#fff"
+        stroke={themeWhite}
         strokeWidth={1.667}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -311,7 +322,7 @@ export function AltCheckmarkIcon(props: SVGProps<SVGSVGElement>) {
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <rect width="24" height="24" rx="12" fill="#FDEAD7" />
+      <rect width="24" height="24" rx="12" fill={themePrimary100} />
       <path
         fillRule="evenodd"
         clipRule="evenodd"
@@ -374,10 +385,10 @@ export function GreenCheckMarkIcon(props: SVGProps<SVGSVGElement>) {
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <rect x="5" y="5" width="56" height="56" rx="28" fill="#D1FADF" />
+      <rect x="5" y="5" width="56" height="56" rx="28" fill={themeSuccess100} />
       <path
         d="M27.7499 33L31.2499 36.5L38.2499 29.5M44.6666 33C44.6666 39.4433 39.4432 44.6666 32.9999 44.6666C26.5566 44.6666 21.3333 39.4433 21.3333 33C21.3333 26.5567 26.5566 21.3333 32.9999 21.3333C39.4432 21.3333 44.6666 26.5567 44.6666 33Z"
-        stroke="#039855"
+        stroke={themeSuccess600}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -388,7 +399,7 @@ export function GreenCheckMarkIcon(props: SVGProps<SVGSVGElement>) {
         width="56"
         height="56"
         rx="28"
-        stroke="#ECFDF3"
+        stroke={themeSuccess50}
         strokeWidth="10"
       />
     </svg>
@@ -610,7 +621,7 @@ export function BarCodeIcon(props: SVGProps<SVGSVGElement>) {
     >
       <path
         d="M4.83333 9.99999H9V14.1667M1.50833 9.99999H1.5M5.675 14.1667H5.66667M9.00833 17.5H9M16.5083 9.99999H16.5M1.5 14.1667H2.75M11.9167 9.99999H13.5833M1.5 17.5H5.66667M9 1.66666V6.66666M13.6667 17.5H15.1667C15.6334 17.5 15.8667 17.5 16.045 17.4092C16.2018 17.3293 16.3293 17.2018 16.4092 17.045C16.5 16.8667 16.5 16.6334 16.5 16.1667V14.6667C16.5 14.1999 16.5 13.9666 16.4092 13.7883C16.3293 13.6315 16.2018 13.504 16.045 13.4242C15.8667 13.3333 15.6334 13.3333 15.1667 13.3333H13.6667C13.2 13.3333 12.9666 13.3333 12.7883 13.4242C12.6315 13.504 12.5041 13.6315 12.4242 13.7883C12.3333 13.9666 12.3333 14.1999 12.3333 14.6667V16.1667C12.3333 16.6334 12.3333 16.8667 12.4242 17.045C12.5041 17.2018 12.6315 17.3293 12.7883 17.4092C12.9666 17.5 13.2 17.5 13.6667 17.5ZM13.6667 6.66666H15.1667C15.6334 6.66666 15.8667 6.66666 16.045 6.57583C16.2018 6.49593 16.3293 6.36845 16.4092 6.21165C16.5 6.03339 16.5 5.80003 16.5 5.33332V3.83332C16.5 3.36661 16.5 3.13326 16.4092 2.955C16.3293 2.7982 16.2018 2.67071 16.045 2.59082C15.8667 2.49999 15.6334 2.49999 15.1667 2.49999H13.6667C13.2 2.49999 12.9666 2.49999 12.7883 2.59082C12.6315 2.67071 12.5041 2.7982 12.4242 2.955C12.3333 3.13326 12.3333 3.36661 12.3333 3.83332V5.33332C12.3333 5.80003 12.3333 6.03339 12.4242 6.21165C12.5041 6.36845 12.6315 6.49593 12.7883 6.57583C12.9666 6.66666 13.2 6.66666 13.6667 6.66666ZM2.83333 6.66666H4.33333C4.80004 6.66666 5.0334 6.66666 5.21166 6.57583C5.36846 6.49593 5.49594 6.36845 5.57584 6.21165C5.66667 6.03339 5.66667 5.80003 5.66667 5.33332V3.83332C5.66667 3.36661 5.66667 3.13326 5.57584 2.955C5.49594 2.7982 5.36846 2.67071 5.21166 2.59082C5.0334 2.49999 4.80004 2.49999 4.33333 2.49999H2.83333C2.36662 2.49999 2.13327 2.49999 1.95501 2.59082C1.79821 2.67071 1.67072 2.7982 1.59083 2.955C1.5 3.13326 1.5 3.36661 1.5 3.83332V5.33332C1.5 5.80003 1.5 6.03339 1.59083 6.21165C1.67072 6.36845 1.79821 6.49593 1.95501 6.57583C2.13327 6.66666 2.36662 6.66666 2.83333 6.66666Z"
-        stroke="#344054"
+        stroke="currentColor"
         strokeWidth="1.66667"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -687,21 +698,21 @@ export function HorizontalDotsIcon(props: SVGProps<SVGSVGElement>) {
     >
       <path
         d="M7.99998 2.83332C8.46022 2.83332 8.83331 2.46023 8.83331 1.99999C8.83331 1.53975 8.46022 1.16666 7.99998 1.16666C7.53974 1.16666 7.16665 1.53975 7.16665 1.99999C7.16665 2.46023 7.53974 2.83332 7.99998 2.83332Z"
-        stroke="#98A2B3"
+        stroke="currentColor"
         strokeWidth="1.66667"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M13.8333 2.83332C14.2935 2.83332 14.6666 2.46023 14.6666 1.99999C14.6666 1.53975 14.2935 1.16666 13.8333 1.16666C13.3731 1.16666 13 1.53975 13 1.99999C13 2.46023 13.3731 2.83332 13.8333 2.83332Z"
-        stroke="#98A2B3"
+        stroke="currentColor"
         strokeWidth="1.66667"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M2.16665 2.83332C2.62688 2.83332 2.99998 2.46023 2.99998 1.99999C2.99998 1.53975 2.62688 1.16666 2.16665 1.16666C1.70641 1.16666 1.33331 1.53975 1.33331 1.99999C1.33331 2.46023 1.70641 2.83332 2.16665 2.83332Z"
-        stroke="#98A2B3"
+        stroke="currentColor"
         strokeWidth="1.66667"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -1036,7 +1047,7 @@ export const ArrowLeftIcon = (props: SVGProps<SVGSVGElement>) => (
   >
     <path
       d="M13.3333 7.00008H1.66667M1.66667 7.00008L7.5 12.8334M1.66667 7.00008L7.5 1.16675"
-      stroke="#344054"
+      stroke="currentColor"
       strokeWidth="1.67"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -1182,7 +1193,7 @@ export const EyeOffIcon = (props: SVGProps<SVGSVGElement>) => (
     {...props}
   >
     <path
-      stroke="#000"
+      stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="2"
@@ -1254,7 +1265,7 @@ export const PrintIcon = (props: SVGProps<SVGSVGElement>) => (
   >
     <path
       d="M18 7V5.2C18 4.0799 18 3.51984 17.782 3.09202C17.5903 2.71569 17.2843 2.40973 16.908 2.21799C16.4802 2 15.9201 2 14.8 2H9.2C8.0799 2 7.51984 2 7.09202 2.21799C6.71569 2.40973 6.40973 2.71569 6.21799 3.09202C6 3.51984 6 4.0799 6 5.2V7M6 18C5.07003 18 4.60504 18 4.22354 17.8978C3.18827 17.6204 2.37962 16.8117 2.10222 15.7765C2 15.395 2 14.93 2 14V11.8C2 10.1198 2 9.27976 2.32698 8.63803C2.6146 8.07354 3.07354 7.6146 3.63803 7.32698C4.27976 7 5.11984 7 6.8 7H17.2C18.8802 7 19.7202 7 20.362 7.32698C20.9265 7.6146 21.3854 8.07354 21.673 8.63803C22 9.27976 22 10.1198 22 11.8V14C22 14.93 22 15.395 21.8978 15.7765C21.6204 16.8117 20.8117 17.6204 19.7765 17.8978C19.395 18 18.93 18 18 18M15 10.5H18M9.2 22H14.8C15.9201 22 16.4802 22 16.908 21.782C17.2843 21.5903 17.5903 21.2843 17.782 20.908C18 20.4802 18 19.9201 18 18.8V17.2C18 16.0799 18 15.5198 17.782 15.092C17.5903 14.7157 17.2843 14.4097 16.908 14.218C16.4802 14 15.9201 14 14.8 14H9.2C8.0799 14 7.51984 14 7.09202 14.218C6.71569 14.4097 6.40973 14.7157 6.21799 15.092C6 15.5198 6 16.0799 6 17.2V18.8C6 19.9201 6 20.4802 6.21799 20.908C6.40973 21.2843 6.71569 21.5903 7.09202 21.782C7.51984 22 8.07989 22 9.2 22Z"
-      stroke="#667085"
+      stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -1523,10 +1534,24 @@ export function PartialCheckboxIcon(props: SVGProps<SVGSVGElement>) {
       viewBox="0 0 20 20"
       {...props}
     >
-      <rect width={19} height={19} x={0.5} y={0.5} fill="#FEF6EE" rx={3.5} />
-      <rect width={19} height={19} x={0.5} y={0.5} stroke="#EF6820" rx={3.5} />
+      <rect
+        width={19}
+        height={19}
+        x={0.5}
+        y={0.5}
+        fill={themePrimary50}
+        rx={3.5}
+      />
+      <rect
+        width={19}
+        height={19}
+        x={0.5}
+        y={0.5}
+        stroke="currentColor"
+        rx={3.5}
+      />
       <path
-        stroke="#EF6820"
+        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
@@ -1600,7 +1625,7 @@ export const InstallIcon = (props: SVGProps<SVGSVGElement>) => (
   >
     <path
       d="M6.66667 10L10 13.3333M10 13.3333L13.3333 10M10 13.3333V6.66667M6.5 17.5H13.5C14.9001 17.5 15.6002 17.5 16.135 17.2275C16.6054 16.9878 16.9878 16.6054 17.2275 16.135C17.5 15.6002 17.5 14.9001 17.5 13.5V6.5C17.5 5.09987 17.5 4.3998 17.2275 3.86502C16.9878 3.39462 16.6054 3.01217 16.135 2.77248C15.6002 2.5 14.9001 2.5 13.5 2.5H6.5C5.09987 2.5 4.3998 2.5 3.86502 2.77248C3.39462 3.01217 3.01217 3.39462 2.77248 3.86502C2.5 4.3998 2.5 5.09987 2.5 6.5V13.5C2.5 14.9001 2.5 15.6002 2.77248 16.135C3.01217 16.6054 3.39462 16.9878 3.86502 17.2275C4.3998 17.5 5.09987 17.5 6.5 17.5Z"
-      stroke="#667085"
+      stroke="currentColor"
       strokeWidth="1.75"
       strokeLinecap="round"
       strokeLinejoin="round"

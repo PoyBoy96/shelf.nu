@@ -1,17 +1,27 @@
 import type { Asset, Category } from "@prisma/client";
 import { useLoaderData } from "react-router";
-import type { loader } from "~/routes/_layout+/home";
 import { ClickableTr } from "./clickable-tr";
 import { DashboardEmptyState } from "./empty-state";
 import { AssetImage } from "../assets/asset-image/component";
 import { AssetStatusBadge } from "../assets/asset-status-badge";
-import { CategoryBadge } from "../assets/category-badge";
+import {
+  CategoryBadge,
+  UNCATEGORIZED_BADGE_COLOR,
+} from "../assets/category-badge";
 import { Button } from "../shared/button";
 
 import { Td, Table, Tr } from "../table";
 
+type NewestAsset = Asset & {
+  category: Pick<Category, "id" | "name" | "color"> | null;
+};
+
+type NewestAssetsLoaderData = {
+  newAssets: NewestAsset[];
+};
+
 export default function NewestAssets() {
-  const { newAssets } = useLoaderData<typeof loader>();
+  const { newAssets } = useLoaderData() as NewestAssetsLoaderData;
   return (
     <div className="flex h-full flex-col rounded border border-gray-200 bg-white">
       <div className="flex items-center justify-between border-b px-4 py-3 md:px-6">
@@ -31,7 +41,7 @@ export default function NewestAssets() {
       {newAssets.length > 0 ? (
         <Table className="flex-1">
           <tbody>
-            {newAssets.map((asset) => (
+            {newAssets.map((asset: NewestAsset) => (
               <ClickableTr key={asset.id} to={`/assets/${asset.id}`}>
                 <Row
                   item={{
@@ -40,7 +50,8 @@ export default function NewestAssets() {
                       ? {
                           id: asset.category.id,
                           name: asset.category?.name || "Uncategorized",
-                          color: asset.category?.color || "#575757",
+                          color:
+                            asset.category?.color || UNCATEGORIZED_BADGE_COLOR,
                         }
                       : null,
                     mainImageExpiration: asset.mainImageExpiration

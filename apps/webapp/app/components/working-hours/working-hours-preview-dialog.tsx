@@ -36,7 +36,7 @@ const WeeklyScheduleGrid = ({ weeklySchedule }: WeeklyScheduleGridProps) => (
           className={tw(
             "relative overflow-hidden border transition-all duration-200",
             isOpen
-              ? "border-green-200 bg-gradient-to-b from-green-50 to-green-100 shadow-sm"
+              ? "border-success-200 bg-gradient-to-b from-success-50 to-success-100 shadow-sm"
               : "border-gray-200 bg-gradient-to-b from-gray-50 to-gray-100"
           )}
         >
@@ -45,7 +45,7 @@ const WeeklyScheduleGrid = ({ weeklySchedule }: WeeklyScheduleGridProps) => (
             className={tw(
               "border-b px-3 py-2 text-center",
               isOpen
-                ? "border-green-200 bg-green-100"
+                ? "border-success-200 bg-success-100"
                 : "border-gray-200 bg-gray-100"
             )}
           >
@@ -62,7 +62,7 @@ const WeeklyScheduleGrid = ({ weeklySchedule }: WeeklyScheduleGridProps) => (
             {isOpen && daySchedule?.openTime && daySchedule?.closeTime ? (
               <>
                 <div className="mb-2 flex items-center justify-center">
-                  <Clock className="size-4 text-green-600" />
+                  <Clock className="size-4 text-success-600" />
                 </div>
                 <div className="space-y-1 text-center">
                   <div className="text-xs font-medium text-gray-900">
@@ -116,20 +116,20 @@ const OverridesSection = ({ overrides }: OverridesSectionProps) => {
           className={tw(
             "flex items-start rounded border p-4 py-2 transition-colors",
             override.isOpen
-              ? "border border-blue-200 bg-blue-50"
-              : "border border-red-200 bg-red-50"
+              ? "border border-primary-200 bg-primary-25"
+              : "border border-error-200 bg-error-50"
           )}
         >
           <div
             className={tw(
               "mr-3 mt-0.5 flex size-8 items-center justify-center rounded-full",
-              override.isOpen ? "bg-blue-100" : "bg-red-100"
+              override.isOpen ? "bg-primary-100" : "bg-error-100"
             )}
           >
             {override.isOpen ? (
-              <Clock className="size-4 text-blue-600" />
+              <Clock className="size-4 text-primary-600" />
             ) : (
-              <AlertCircle className="size-4 text-red-600" />
+              <AlertCircle className="size-4 text-error-600" />
             )}
           </div>
 
@@ -151,8 +151,8 @@ const OverridesSection = ({ overrides }: OverridesSectionProps) => {
                 className={tw(
                   "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
                   override.isOpen
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-red-100 text-red-800"
+                    ? "bg-primary-100 text-primary-800"
+                    : "bg-error-100 text-error-800"
                 )}
               >
                 {override.isOpen ? "Modified Hours" : "Closed"}
@@ -233,7 +233,7 @@ export const WorkingHoursPreviewDialog = ({
           <div className="p-6">
             {isLoading ? (
               <div className="py-12 text-center">
-                <div className="animate-spin mx-auto mb-4 size-8 rounded-full border-2 border-blue-600 border-t-transparent" />
+                <div className="animate-spin mx-auto mb-4 size-8 rounded-full border-2 border-primary-600 border-t-transparent" />
                 <p className="text-gray-600">Loading working hours...</p>
               </div>
             ) : !workingHours?.enabled ? (

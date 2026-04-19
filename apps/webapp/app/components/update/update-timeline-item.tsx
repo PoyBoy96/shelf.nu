@@ -71,7 +71,12 @@ export function UpdateTimelineItem({ update }: UpdateTimelineItemProps) {
         </div>
         {isUnread && (
           <div className="mt-3">
-            <Badge color="#3B82F6">New</Badge>
+            <Badge
+              color="rgb(var(--color-primary-100) / 1)"
+              textColor="rgb(var(--color-primary-700) / 1)"
+            >
+              New
+            </Badge>
           </div>
         )}
       </div>
@@ -81,7 +86,7 @@ export function UpdateTimelineItem({ update }: UpdateTimelineItemProps) {
         <div
           className={tw(
             "z-10 size-3 rounded-full border-2 border-white shadow-sm",
-            isUnread ? "bg-blue-500" : "bg-gray-400"
+            isUnread ? "bg-primary-500" : "bg-gray-400"
           )}
         />
         <div className="absolute top-3 h-full w-px bg-gray-200" />
@@ -126,7 +131,7 @@ export function UpdateTimelineItem({ update }: UpdateTimelineItemProps) {
                 );
               }}
               aria-label={`Learn more about ${update.title}`}
-              className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary-600 transition-colors hover:text-primary-700 hover:underline"
             >
               Learn more
               <ExternalLinkIcon className="size-4" />

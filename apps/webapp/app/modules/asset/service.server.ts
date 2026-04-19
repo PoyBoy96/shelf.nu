@@ -104,6 +104,7 @@ import {
   parseFileFormData,
   uploadImageFromUrl,
 } from "~/utils/storage.server";
+import { UNCATEGORIZED_BADGE_COLOR } from "~/utils/theme-colors";
 import { resolveTeamMemberName, resolveUserDisplayName } from "~/utils/user";
 import { resolveAssetIdsForBulkOperation } from "./bulk-operations-helper.server";
 import { assetIndexFields } from "./fields";
@@ -511,6 +512,8 @@ export async function getAssets(params: {
   hideUnavailableToAddToKit?: boolean;
   assetKitFilter?: string | null;
   availableToBookOnly?: boolean;
+  favoritesOnly?: boolean;
+  favoriteOwnerId?: string;
 }) {
   let {
     organizationId,
@@ -531,6 +534,8 @@ export async function getAssets(params: {
     extraInclude,
     assetKitFilter,
     availableToBookOnly,
+    favoritesOnly,
+    favoriteOwnerId,
   } = params;
 
   try {
@@ -541,6 +546,15 @@ export async function getAssets(params: {
 
     if (availableToBookOnly) {
       where.availableToBook = true;
+    }
+
+    if (favoritesOnly && favoriteOwnerId) {
+      where.assetFavorites = {
+        some: {
+          organizationId,
+          ownerId: favoriteOwnerId,
+        },
+      };
     }
 
     if (search) {
@@ -1528,7 +1542,7 @@ export async function updateAsset({
             ? {
                 id: asset.category.id,
                 name: asset.category.name ?? "Unnamed category",
-                color: asset.category.color ?? "#575757",
+                color: asset.category.color ?? UNCATEGORIZED_BADGE_COLOR,
               }
             : null,
           loadUserForNotes,
@@ -2148,6 +2162,7 @@ export async function getPaginatedAndFilterableAssets({
     teamMemberIds,
     assetKitFilter,
   } = paramsValues;
+  const favoritesOnly = searchParams.get("favoritesOnly") === "true";
 
   const cookie = await updateCookieWithPerPage(request, perPageParam);
   const { perPage } = cookie;
@@ -2202,6 +2217,8 @@ export async function getPaginatedAndFilterableAssets({
         extraInclude,
         assetKitFilter,
         availableToBookOnly: isSelfService,
+        favoritesOnly,
+        favoriteOwnerId: userId,
       }),
     ]);
 

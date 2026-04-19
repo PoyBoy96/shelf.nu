@@ -33,7 +33,7 @@ export const RemoveAssetFromAudit = ({
           variant="link"
           icon="trash"
           className={tw(
-            "justify-start whitespace-nowrap rounded-sm px-2 py-1.5 text-sm font-medium text-gray-700 outline-none hover:bg-slate-100 hover:text-gray-700"
+            "justify-start whitespace-nowrap rounded-sm px-2 py-1.5 text-sm font-medium text-gray-700 outline-none hover:bg-gray-100 hover:text-gray-700"
           )}
           width="full"
           disabled={disabled}

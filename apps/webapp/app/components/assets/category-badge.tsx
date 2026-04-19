@@ -1,5 +1,8 @@
 import type { Category } from "@prisma/client";
+import { UNCATEGORIZED_BADGE_COLOR } from "~/utils/theme-colors";
 import { Badge } from "../shared/badge";
+
+export { UNCATEGORIZED_BADGE_COLOR };
 
 export function CategoryBadge({
   category,
@@ -13,7 +16,11 @@ export function CategoryBadge({
       {category.name}
     </Badge>
   ) : (
-    <Badge color="#575757" withDot={false} className={className}>
+    <Badge
+      color={UNCATEGORIZED_BADGE_COLOR}
+      withDot={false}
+      className={className}
+    >
       Uncategorized
     </Badge>
   );

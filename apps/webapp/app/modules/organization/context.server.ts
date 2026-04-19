@@ -38,6 +38,10 @@ type SelectedOrganization = {
 
 type SelectedOrganizationCache = Map<string, Promise<SelectedOrganization>>;
 
+function isActiveOrganization(organization: OrganizationFromUser) {
+  return !organization.archivedAt && !organization.deletionScheduledFor;
+}
+
 async function getSelectedOrganizationIdCookie(request: Request) {
   return parseCookie<SelectedOrganizationId>(
     selectedOrganizationIdCookie,
@@ -83,7 +87,9 @@ async function getSelectedOrganizationUncached({
    * In this case what we do is we set the current organization to the first one in the list
    */
   const userOrganizations = await getUserOrganizations({ userId });
-  const allOrganizations = userOrganizations.map((uo) => uo.organization);
+  const allOrganizations = userOrganizations
+    .map((uo) => uo.organization)
+    .filter(isActiveOrganization);
 
   // Resolve the SSO flag from the already-fetched user data so the
   // result is consistent regardless of which loader populates the cache.

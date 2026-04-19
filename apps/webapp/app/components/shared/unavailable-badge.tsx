@@ -30,11 +30,21 @@ export function UnavailableBadge({
                 mixBlendMode: "multiply",
               }}
             >
-              <rect width={22} height={22} fill="#F2F4F7" rx={11} />
-              <rect width={22} height={22} stroke="#EAECF0" rx={11} />
+              <rect
+                width={22}
+                height={22}
+                fill="rgb(var(--color-gray-100) / 1)"
+                rx={11}
+              />
+              <rect
+                width={22}
+                height={22}
+                stroke="rgb(var(--color-gray-200) / 1)"
+                rx={11}
+              />
               <g clipPath="url(#a)">
                 <path
-                  stroke="#667085"
+                  stroke="rgb(var(--color-gray-500) / 1)"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={1.5}
@@ -44,7 +54,7 @@ export function UnavailableBadge({
             </g>
             <defs>
               <clipPath id="a">
-                <path fill="#fff" d="M5 5h12v12H5z" />
+                <path fill="rgb(var(--color-white) / 1)" d="M5 5h12v12H5z" />
               </clipPath>
             </defs>
           </svg>

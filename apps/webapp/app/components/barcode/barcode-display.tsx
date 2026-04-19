@@ -1,5 +1,9 @@
 import { useCallback, useRef, useEffect } from "react";
 import type { BarcodeType } from "@prisma/client";
+import {
+  CANVAS_THEME_COLOR_FALLBACKS,
+  resolveThemeCanvasColor,
+} from "~/utils/theme-colors";
 import { tw } from "~/utils/tw";
 
 // Cached import - only loads bwip-js once but keeps it in separate chunk
@@ -76,7 +80,10 @@ export function BarcodeDisplay({
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = "#ef4444";
+          ctx.fillStyle = resolveThemeCanvasColor(
+            "--color-error-600",
+            CANVAS_THEME_COLOR_FALLBACKS.error600
+          );
           ctx.font = "12px sans-serif";
           ctx.textAlign = "center";
           ctx.fillText("Invalid barcode", canvas.width / 2, canvas.height / 2);

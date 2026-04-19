@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
-import colors from "tailwindcss/colors";
+
+const cssColor = (token: string) => `rgb(var(${token}) / <alpha-value>)`;
 
 export default {
   content: [
@@ -90,35 +91,35 @@ export default {
         inter: ["Inter", "sans-serif"],
       },
       colors: {
-        white: "#ffffff",
+        white: cssColor("--color-white"),
         black: "#000000",
-        muted: colors.gray[200],
+        muted: cssColor("--color-muted"),
         gray: {
-          25: "#FCFCFD",
-          50: "#F9FAFB",
-          100: "#F2F4F7",
-          200: "#EAECF0",
-          300: "#D0D5DD",
-          400: "#98A2B3",
-          500: "#667085",
-          600: "#475467",
-          700: "#344054",
-          800: "#1D2939",
-          900: "#101828",
+          25: cssColor("--color-gray-25"),
+          50: cssColor("--color-gray-50"),
+          100: cssColor("--color-gray-100"),
+          200: cssColor("--color-gray-200"),
+          300: cssColor("--color-gray-300"),
+          400: cssColor("--color-gray-400"),
+          500: cssColor("--color-gray-500"),
+          600: cssColor("--color-gray-600"),
+          700: cssColor("--color-gray-700"),
+          800: cssColor("--color-gray-800"),
+          900: cssColor("--color-gray-900"),
         },
         primary: {
-          DEFAULT: "#EF6820",
-          25: "#FEFAF5",
-          50: "#FEF6EE",
-          100: "#FDEAD7",
-          200: "#F9DBAF",
-          300: "#F7B27A",
-          400: "#F38744",
-          500: "#EF6820",
-          600: "#EF6820",
-          700: "#EF6820",
-          800: "#932F19",
-          900: "#772917",
+          DEFAULT: cssColor("--color-primary"),
+          25: cssColor("--color-primary-25"),
+          50: cssColor("--color-primary-50"),
+          100: cssColor("--color-primary-100"),
+          200: cssColor("--color-primary-200"),
+          300: cssColor("--color-primary-300"),
+          400: cssColor("--color-primary-400"),
+          500: cssColor("--color-primary-500"),
+          600: cssColor("--color-primary-600"),
+          700: cssColor("--color-primary-700"),
+          800: cssColor("--color-primary-800"),
+          900: cssColor("--color-primary-900"),
         },
         error: {
           25: "#FFFBFA",
@@ -160,7 +161,7 @@ export default {
           900: "#054F31",
         },
         ring: {
-          DEFAULT: "#EAF2FF",
+          DEFAULT: cssColor("--color-ring"),
         },
         tremor: {
           brand: {

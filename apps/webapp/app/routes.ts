@@ -8,6 +8,11 @@ import { flatRoutes } from "remix-flat-routes";
 
 export default remixRoutesOptionAdapter((defineRoutes) =>
   flatRoutes("routes", defineRoutes, {
-    ignoredRouteFiles: ["**/.*", "**/*.test.server.ts"], // Ignore dot files and test files
+    ignoredRouteFiles: [
+      "**/.*",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.test.server.ts",
+    ], // Ignore dot files and test files
   })
 );

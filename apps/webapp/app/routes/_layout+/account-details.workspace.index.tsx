@@ -94,9 +94,12 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     /** Get the organizations visible to this user.
      * SSO users never see their personal workspace. */
     const allOrganizations = user.userOrganizations.map((r) => r.organization);
+    const activeOrganizations = allOrganizations.filter(
+      (o) => !o.archivedAt && !o.deletionScheduledFor
+    );
     const organizations = user.sso
-      ? allOrganizations.filter((o) => o.type !== "PERSONAL")
-      : allOrganizations;
+      ? activeOrganizations.filter((o) => o.type !== "PERSONAL")
+      : activeOrganizations;
     /** Get the tier limit */
     const tierLimit = await getUserTierLimit(userId);
 
@@ -295,7 +298,7 @@ const OrganizationRow = ({
       <Td>{item._count?.locations || 0}</Td>
       <Td>{item._count?.members || 0}</Td>
       <Td>
-        {userId === item.owner.id && item.type !== "PERSONAL" ? (
+        {userId === item.owner.id ? (
           <WorkspaceActionsDropdown workspaceId={item.id} />
         ) : (
           " "

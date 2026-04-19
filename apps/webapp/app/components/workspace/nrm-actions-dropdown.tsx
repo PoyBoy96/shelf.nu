@@ -53,7 +53,7 @@ export function TeamMembersActionsDropdown({
           ref={ref}
         >
           <DropdownMenuItem
-            className="p-0 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+            className="p-0 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
             onSelect={(e) => e.preventDefault()}
           >
             <Button
@@ -78,7 +78,7 @@ export function TeamMembersActionsDropdown({
             </Button>
           </DropdownMenuItem>
 
-          <DropdownMenuItem className="p-0 text-gray-700 hover:bg-slate-100 hover:text-gray-700">
+          <DropdownMenuItem className="p-0 text-gray-700 hover:bg-gray-100 hover:text-gray-700">
             <Button
               to={`${teamMember.id}/edit`}
               role="link"

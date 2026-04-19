@@ -467,7 +467,7 @@ function PlanCard({
       >
         <div className="absolute right-1.5 top-1.5">
           {badgeLabel ? (
-            <Tag className={tw("w-max", " bg-orange-100 text-orange-700")}>
+            <Tag className={tw("w-max", "bg-primary-100 text-primary-700")}>
               {badgeLabel}
             </Tag>
           ) : null}

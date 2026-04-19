@@ -152,7 +152,11 @@ const variants: Record<ButtonVariant, string> = {
     "disabled:border-error-300 disabled:bg-error-300",
     "enabled:hover:bg-error-800"
   ),
-  info: "bg-blue-500 text-white hover:bg-blue-400 focus:ring-2 disabled:bg-blue-300",
+  info: tw(
+    "border-primary-400 bg-primary-500 text-white focus:ring-2",
+    "disabled:border-primary-300 disabled:bg-primary-300",
+    "enabled:hover:bg-primary-400"
+  ),
   inherit: tw(
     "font-inherit m-0 inline border-none bg-transparent p-0 text-inherit hover:underline"
   ),

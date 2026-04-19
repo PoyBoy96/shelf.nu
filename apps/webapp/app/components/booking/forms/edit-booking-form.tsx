@@ -208,9 +208,7 @@ export function EditBookingForm({ booking, action }: BookingFormData) {
       {canSeeActions ? (
         <AbsolutePositionedHeaderActions>
           <div className="flex flex-1 items-center justify-between gap-2">
-            <When truthy={isBase}>
-              <BookingProcessSidebar />
-            </When>
+            <BookingProcessSidebar viewer={isBase ? "requester" : "manager"} />
 
             {/* When the booking is Completed, there are no actions available for BASE role so we don't render it */}
             <ActionsDropdown />
@@ -276,7 +274,7 @@ export function EditBookingForm({ booking, action }: BookingFormData) {
                 className="grow whitespace-nowrap"
                 size="sm"
               >
-                {isBase ? "Request reservation" : "Reserve"}
+                {isBase ? "Request reservation" : "Reserve dates"}
               </Button>
             ) : null}
 

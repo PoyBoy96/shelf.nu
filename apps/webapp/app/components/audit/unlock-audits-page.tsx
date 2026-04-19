@@ -299,7 +299,7 @@ function OwnerCTAs({
   return (
     <>
       {needsConsent && (
-        <div className="rounded-lg border border-[#FFE082] bg-[#FFF8E1] p-3">
+        <div className="rounded-lg border border-warning-200 bg-warning-50 p-3">
           <label className="flex cursor-pointer items-start gap-2">
             <input
               type="checkbox"

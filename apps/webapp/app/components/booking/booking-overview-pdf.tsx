@@ -8,6 +8,7 @@ import { Image } from "~/components/shared/image";
 import { useSearchParams } from "~/hooks/search-params";
 import { BOOKING_ASSET_SORTING_OPTIONS } from "~/modules/booking/constants";
 import type { PdfDbResult } from "~/modules/booking/pdf-helpers";
+import { PRINT_TABLE_BORDER_COLOR } from "~/utils/theme-colors";
 import { tw } from "~/utils/tw";
 import { resolveUserDisplayName } from "~/utils/user";
 import { AssetImage } from "../assets/asset-image/component";
@@ -79,7 +80,7 @@ export const BookingOverviewPDF = ({
       <Button
         type="button"
         variant="link"
-        className="hidden justify-start rounded-sm px-2 py-1.5 text-left text-sm font-medium text-gray-700 outline-none hover:bg-slate-100 hover:text-gray-700 md:block"
+        className="hidden justify-start rounded-sm px-2 py-1.5 text-left text-sm font-medium text-gray-700 outline-none hover:bg-gray-100 hover:text-gray-700 md:block"
         width="full"
         name="generate pdf"
         onClick={handleOpenDialog}
@@ -147,7 +148,7 @@ export const BookingOverviewPDF = ({
       <Button
         type="button"
         variant="link"
-        className="block justify-start rounded-sm px-2 py-1.5 text-left text-sm font-medium text-gray-700 outline-none hover:bg-slate-100 hover:text-gray-700  md:hidden"
+        className="block justify-start rounded-sm px-2 py-1.5 text-left text-sm font-medium text-gray-700 outline-none hover:bg-gray-100 hover:text-gray-700  md:hidden"
         width="full"
         name="generate pdf"
         disabled={disabled}
@@ -205,15 +206,15 @@ const BookingPDFPreview = ({
           }
           .booking-assets-table th,
           .booking-assets-table td {
-            border-right: 1px solid #d1d5db !important;
-            border-bottom: 1px solid #d1d5db !important;
+            border-right: 1px solid ${PRINT_TABLE_BORDER_COLOR} !important;
+            border-bottom: 1px solid ${PRINT_TABLE_BORDER_COLOR} !important;
           }
           .booking-assets-table thead th {
-            border-top: 1px solid #d1d5db !important;
+            border-top: 1px solid ${PRINT_TABLE_BORDER_COLOR} !important;
           }
           .booking-assets-table th:first-child,
           .booking-assets-table td:first-child {
-            border-left: 1px solid #d1d5db !important;
+            border-left: 1px solid ${PRINT_TABLE_BORDER_COLOR} !important;
           }
         }`}
       </style>

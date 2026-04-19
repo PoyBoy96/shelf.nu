@@ -1,7 +1,6 @@
 import { useLoaderData } from "react-router";
 import { useCurrentOrganization } from "~/hooks/use-current-organization";
 import { useUserRoleHelper } from "~/hooks/user-user-role-helper";
-import type { loader } from "~/routes/_layout+/home";
 import { isPersonalOrg } from "~/utils/organization";
 import {
   PermissionAction,
@@ -16,8 +15,26 @@ import { Button } from "../shared/button";
 
 import { Table, Td, Tr } from "../table";
 
+type CustodianRow = {
+  id: string;
+  count: number;
+  custodian: {
+    name: string;
+    userId?: string | null;
+    user?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      profilePicture?: string | null;
+    } | null;
+  };
+};
+
+type CustodiansLoaderData = {
+  custodiansData: CustodianRow[];
+};
+
 export default function CustodiansList() {
-  const { custodiansData } = useLoaderData<typeof loader>();
+  const { custodiansData } = useLoaderData() as CustodiansLoaderData;
   const { roles } = useUserRoleHelper();
   const currentOrganization = useCurrentOrganization();
   const isPersonal = isPersonalOrg(currentOrganization);
@@ -59,7 +76,7 @@ export default function CustodiansList() {
       ) : custodiansData.length > 0 ? (
         <Table className="flex-1">
           <tbody>
-            {custodiansData.map((cd) => {
+            {custodiansData.map((cd: CustodianRow) => {
               const link =
                 canViewTeamMemberUsers && cd.custodian.userId
                   ? `/settings/team/users/${cd.custodian.userId}/assets`

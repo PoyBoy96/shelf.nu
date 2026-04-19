@@ -252,7 +252,7 @@ export const CodePreview = ({
       style={style}
     >
       {/* Code Selector */}
-      <div className="w-full border-b-[1.1px] border-[#E3E4E8] px-4 py-3">
+      <div className="w-full border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-center gap-2">
           <select
             id="code-selector"
@@ -266,7 +266,7 @@ export const CodePreview = ({
               onCodeChange?.(newSelectedCode || null);
             }}
             className={tw(
-              "min-w-0  flex-1 truncate rounded-md border border-gray-300 bg-white px-3 py-2 pr-7 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500",
+              "min-w-0 flex-1 truncate rounded-md border border-gray-300 bg-white px-3 py-2 pr-7 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500",
               isBaseOrSelfService ? "max-w-[320px]" : "max-w-[280px]"
             )}
           >
@@ -337,7 +337,7 @@ export const CodePreview = ({
 
       {/* Actions */}
       <When truthy={!hideButton && !!selectedCode}>
-        <div className="mt-8 flex w-full items-center gap-3 border-t-[1.1px] border-[#E3E4E8] px-4 py-3">
+        <div className="mt-8 flex w-full items-center gap-3 border-t border-gray-200 px-4 py-3">
           <Button
             type="button"
             icon="download"
@@ -407,7 +407,7 @@ export const QrLabel = React.forwardRef<HTMLDivElement, QrLabelProps>(
           flexDirection: "column",
           gap: "12px",
           borderRadius: "4px",
-          border: "5px solid #E3E4E8",
+          border: "5px solid rgb(var(--color-gray-200) / 1)",
           padding: "24px 17px 24px 17px",
           backgroundColor: "white",
         }}
@@ -478,7 +478,7 @@ export const BarcodeLabel = React.forwardRef<HTMLDivElement, BarcodeLabelProps>(
           flexDirection: "column",
           gap: "12px",
           borderRadius: "4px",
-          border: "5px solid #E3E4E8",
+          border: "5px solid rgb(var(--color-gray-200) / 1)",
           padding: "24px 17px 24px 17px",
           backgroundColor: "white",
         }}

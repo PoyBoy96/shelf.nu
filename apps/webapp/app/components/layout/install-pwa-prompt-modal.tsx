@@ -24,7 +24,7 @@ export function InstallPwaPromptModal() {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
       >
-        <div className="dialog-backdrop !items-end !bg-[#364054]/70">
+        <div className="dialog-backdrop !items-end !bg-gray-900/70">
           <dialog
             className="dialog m-auto h-auto w-[90%] pb-8 sm:w-[400px]"
             open={true}

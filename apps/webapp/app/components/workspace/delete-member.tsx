@@ -44,7 +44,7 @@ export const DeleteMember = ({
             type="button"
             variant="link"
             data-test-id="deleteTeamMemberButton"
-            className="justify-start rounded-sm  p-3 text-sm font-semibold text-gray-700 outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-slate-100 hover:text-gray-700"
+            className="justify-start rounded-sm  p-3 text-sm font-semibold text-gray-700 outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-gray-100 hover:text-gray-700"
             width="full"
           >
             <span className="flex items-center gap-2">

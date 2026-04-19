@@ -6,6 +6,7 @@ import useApiQuery from "~/hooks/use-api-query";
 import { getAuditStatusLabel } from "~/modules/audit/audit-filter-utils";
 import type { AuditPdfDbResult } from "~/modules/audit/pdf-helpers";
 import { sanitizeFilename } from "~/utils/sanitize-filename";
+import { PRINT_TABLE_BORDER_COLOR } from "~/utils/theme-colors";
 import { tw } from "~/utils/tw";
 import { resolveUserDisplayName } from "~/utils/user";
 import { AuditAssetStatusBadge } from "./audit-asset-status-badge";
@@ -225,15 +226,15 @@ const AuditPDFContent = ({
           }
           .audit-assets-table th,
           .audit-assets-table td {
-            border-right: 1px solid #d1d5db !important;
-            border-bottom: 1px solid #d1d5db !important;
+            border-right: 1px solid ${PRINT_TABLE_BORDER_COLOR} !important;
+            border-bottom: 1px solid ${PRINT_TABLE_BORDER_COLOR} !important;
           }
           .audit-assets-table thead th {
-            border-top: 1px solid #d1d5db !important;
+            border-top: 1px solid ${PRINT_TABLE_BORDER_COLOR} !important;
           }
           .audit-assets-table th:first-child,
           .audit-assets-table td:first-child {
-            border-left: 1px solid #d1d5db !important;
+            border-left: 1px solid ${PRINT_TABLE_BORDER_COLOR} !important;
           }
         }`}
       </style>

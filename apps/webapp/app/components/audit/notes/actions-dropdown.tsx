@@ -25,7 +25,7 @@ export const ActionsDropdown = ({ noteId }: { noteId: string }) => {
             <input type="hidden" name="noteId" value={noteId} />
             <button
               type="submit"
-              className="flex w-full items-center gap-1 py-1 pr-3 text-left text-sm font-medium text-gray-700 outline-none hover:bg-slate-100 hover:text-gray-700 md:py-0.5"
+              className="flex w-full items-center gap-1 py-1 pr-3 text-left text-sm font-medium text-gray-700 outline-none hover:bg-gray-100 hover:text-gray-700 md:py-0.5"
             >
               <TrashIcon /> Delete note
             </button>

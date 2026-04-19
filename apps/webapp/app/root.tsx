@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import type { User } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import nProgressStyles from "nprogress/nprogress.css?url";
 import type {
   LinksFunction,
@@ -23,6 +23,12 @@ import { Clarity } from "./components/marketing/clarity";
 import { CloudflareWebAnalytics } from "./components/marketing/cloudflare-web-analytics";
 import { config } from "./config/shelf.config";
 import { useNprogress } from "./hooks/use-nprogress";
+import { getUserByID } from "./modules/user/service.server";
+import {
+  DEFAULT_USER_THEME,
+  getUserTheme,
+  type UserTheme,
+} from "./modules/user/theme";
 import fontsStylesheetUrl from "./styles/fonts.css?url";
 import globalStylesheetUrl from "./styles/global.css?url";
 import nProgressCustomStyles from "./styles/nprogress.css?url";
@@ -37,7 +43,7 @@ import { splashScreenLinks } from "./utils/splash-screen-links";
 
 export interface RootData {
   env: typeof getBrowserEnv;
-  user: User;
+  theme: UserTheme;
 }
 
 export const handle = {
@@ -63,14 +69,26 @@ export const meta: MetaFunction = () => [
   },
 ];
 
-export const loader = ({ request }: LoaderFunctionArgs) =>
-  payload({
+export const loader = async ({ context, request }: LoaderFunctionArgs) => {
+  let theme = DEFAULT_USER_THEME;
+
+  if (context.isAuthenticated) {
+    const { userId } = context.getSession();
+    const user = await getUserByID(userId, {
+      select: { theme: true } satisfies Prisma.UserSelect,
+    });
+    theme = getUserTheme(user.theme);
+  }
+
+  return payload({
     env: getBrowserEnv(),
     maintenanceMode: false,
+    theme,
     requestInfo: {
       hints: getClientHint(request),
     },
   });
+};
 
 export const shouldRevalidate = () => false;
 
@@ -78,13 +96,17 @@ export function Layout({ children }: { children: ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   const nonce = useNonce();
   const [hasCookies, setHasCookies] = useState(true);
+  const theme = getUserTheme(data?.theme);
+  const htmlClassName = ["overflow-hidden", theme === "dark" ? "dark" : ""]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     setHasCookies(navigator.cookieEnabled);
   }, []);
 
   return (
-    <html lang="en" className="overflow-hidden">
+    <html lang="en" className={htmlClassName} data-theme={theme}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />

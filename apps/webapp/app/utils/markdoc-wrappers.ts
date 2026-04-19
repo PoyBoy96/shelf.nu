@@ -7,6 +7,7 @@
  */
 
 import type { Category } from "@prisma/client";
+import { UNCATEGORIZED_BADGE_COLOR } from "~/utils/theme-colors";
 import { resolveUserDisplayName } from "~/utils/user";
 
 /**
@@ -264,12 +265,8 @@ export function wrapCustodianForNote(custodian: {
 export function wrapCategoryForNote(
   category?: Pick<Category, "id" | "name" | "color"> | null
 ): string {
-  if (!category) {
-    return '{% category_badge name="Uncategorized" color="#575757" /%}';
-  }
-
-  const name = (category.name ?? "Uncategorized").trim();
-  const color = category.color ?? "#575757";
+  const name = (category?.name ?? "Uncategorized").trim();
+  const color = category?.color ?? UNCATEGORIZED_BADGE_COLOR;
 
   const escape = (value: string) => value.replace(/"/g, "&quot;");
 

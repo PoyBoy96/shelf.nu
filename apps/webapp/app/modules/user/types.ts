@@ -8,6 +8,7 @@ export interface UpdateUserPayload {
   lastName?: User["lastName"];
   displayName?: User["displayName"];
   profilePicture?: User["profilePicture"];
+  theme?: User["theme"];
   onboarded?: User["onboarded"];
   password?: string;
   confirmPassword?: string;

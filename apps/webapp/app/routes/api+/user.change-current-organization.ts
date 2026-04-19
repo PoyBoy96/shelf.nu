@@ -29,7 +29,13 @@ export async function action({ context, request }: ActionFunctionArgs) {
       select: {
         id: true,
         user: { select: { sso: true } },
-        organization: { select: { type: true } },
+        organization: {
+          select: {
+            type: true,
+            archivedAt: true,
+            deletionScheduledFor: true,
+          },
+        },
       },
     });
 
@@ -37,6 +43,18 @@ export async function action({ context, request }: ActionFunctionArgs) {
       throw new ShelfError({
         cause: null,
         message: "You are not a member of this organization.",
+        status: 403,
+        label: "Organization",
+      });
+    }
+
+    if (
+      membership.organization.archivedAt ||
+      membership.organization.deletionScheduledFor
+    ) {
+      throw new ShelfError({
+        cause: null,
+        message: "This workspace is scheduled for deletion.",
         status: 403,
         label: "Organization",
       });

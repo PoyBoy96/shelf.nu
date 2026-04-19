@@ -4,6 +4,7 @@ import {
   detectPotentialChanges,
   detectCustomFieldChanges,
   getCustomFieldUpdateNoteContent,
+  getAssetsWhereInput,
 } from "./utils.server";
 
 // @vitest-environment node
@@ -631,5 +632,34 @@ describe("detectCustomFieldChanges - Display Value Formatting", () => {
         isFirstTimeSet: false,
       },
     ]);
+  });
+});
+
+describe("getAssetsWhereInput", () => {
+  it("adds favorites-only filtering when requested", () => {
+    const where = getAssetsWhereInput({
+      organizationId: "org-1",
+      userId: "user-1",
+      currentSearchParams: "favoritesOnly=true",
+    });
+
+    expect(where).toMatchObject({
+      organizationId: "org-1",
+      assetFavorites: {
+        some: {
+          organizationId: "org-1",
+          ownerId: "user-1",
+        },
+      },
+    });
+  });
+
+  it("does not add favorites filtering without a user", () => {
+    const where = getAssetsWhereInput({
+      organizationId: "org-1",
+      currentSearchParams: "favoritesOnly=true",
+    });
+
+    expect(where).toEqual({ organizationId: "org-1" });
   });
 });

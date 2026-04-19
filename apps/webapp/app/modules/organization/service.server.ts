@@ -19,6 +19,7 @@ import {
   getUserActiveSubscription,
   getUserActiveSubscriptions,
   premiumIsEnabled,
+  stripe,
   transferSubscriptionToCustomer,
 } from "~/utils/stripe.server";
 import { resolveUserDisplayName } from "~/utils/user";
@@ -370,6 +371,10 @@ const ORGANIZATION_SELECT_FIELDS = {
   },
   ssoDetails: true,
   workspaceDisabled: true,
+  archivedAt: true,
+  deletionScheduledFor: true,
+  deletionRequestedById: true,
+  deletionRequestedAt: true,
   selfServiceCanSeeCustody: true,
   selfServiceCanSeeBookings: true,
   baseUserCanSeeCustody: true,
@@ -410,6 +415,200 @@ export async function getUserOrganizations({ userId }: { userId: string }) {
         "Something went wrong while fetching user organizations. Please try again or contact support.",
       additionalData: { userId },
       label,
+    });
+  }
+}
+
+const WORKSPACE_DELETION_DELAY_DAYS = 30;
+
+function getWorkspaceDeletionScheduleDate(now = new Date()) {
+  const deletionScheduledFor = new Date(now);
+  deletionScheduledFor.setDate(
+    deletionScheduledFor.getDate() + WORKSPACE_DELETION_DELAY_DAYS
+  );
+  return deletionScheduledFor;
+}
+
+export async function requestWorkspaceDeletion({
+  organizationId,
+  actorUserId,
+  now = new Date(),
+}: {
+  organizationId: Organization["id"];
+  actorUserId: User["id"];
+  now?: Date;
+}) {
+  try {
+    const deletionScheduledFor = getWorkspaceDeletionScheduleDate(now);
+
+    const result = await db.$transaction(async (tx) => {
+      const membership = await tx.userOrganization.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: actorUserId,
+            organizationId,
+          },
+        },
+        select: {
+          roles: true,
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              userId: true,
+              archivedAt: true,
+              deletionScheduledFor: true,
+            },
+          },
+        },
+      });
+
+      if (!membership) {
+        throw new ShelfError({
+          cause: null,
+          message: "You are not a member of this workspace.",
+          status: 403,
+          label,
+          shouldBeCaptured: false,
+        });
+      }
+
+      if (!membership.roles.includes(OrganizationRoles.OWNER)) {
+        throw new ShelfError({
+          cause: null,
+          message: "Only workspace owners can delete a workspace.",
+          status: 403,
+          label,
+          shouldBeCaptured: false,
+        });
+      }
+
+      if (
+        membership.organization.archivedAt ||
+        membership.organization.deletionScheduledFor
+      ) {
+        throw new ShelfError({
+          cause: null,
+          message: "This workspace is already scheduled for deletion.",
+          status: 400,
+          label,
+          shouldBeCaptured: false,
+        });
+      }
+
+      const fallbackMembership = await tx.userOrganization.findFirst({
+        where: {
+          userId: actorUserId,
+          organizationId: { not: organizationId },
+          organization: {
+            archivedAt: null,
+            deletionScheduledFor: null,
+            workspaceDisabled: false,
+          },
+        },
+        orderBy: { createdAt: "asc" },
+        select: {
+          organizationId: true,
+        },
+      });
+
+      if (!fallbackMembership) {
+        throw new ShelfError({
+          cause: null,
+          message:
+            "You need to belong to another active workspace before deleting this one.",
+          status: 400,
+          label,
+          shouldBeCaptured: false,
+        });
+      }
+
+      const ownerHasOtherActiveTeamWorkspaces =
+        membership.organization.type === OrganizationType.TEAM
+          ? (await tx.organization.count({
+              where: {
+                userId: membership.organization.userId,
+                id: { not: organizationId },
+                type: OrganizationType.TEAM,
+                archivedAt: null,
+                deletionScheduledFor: null,
+                workspaceDisabled: false,
+              },
+            })) > 0
+          : false;
+
+      await tx.organization.update({
+        where: { id: organizationId },
+        data: {
+          archivedAt: now,
+          deletionRequestedAt: now,
+          deletionRequestedById: actorUserId,
+          deletionScheduledFor,
+          barcodesEnabled: false,
+          barcodesEnabledAt: null,
+          auditsEnabled: false,
+          auditsEnabledAt: null,
+        },
+      });
+
+      return {
+        fallbackOrganizationId: fallbackMembership.organizationId,
+        organizationName: membership.organization.name,
+        organizationType: membership.organization.type,
+        ownerHasOtherActiveTeamWorkspaces,
+        ownerId: membership.organization.userId,
+      };
+    });
+
+    let billingCancellationError: string | null = null;
+    try {
+      await cancelWorkspaceBillingSubscriptions({
+        ownerId: result.ownerId,
+        organizationId,
+        cancelOwnerTierSubscriptions:
+          shouldCancelOwnerTierSubscriptionsOnWorkspaceDeletion({
+            workspaceType: result.organizationType,
+            ownerHasOtherActiveTeamWorkspaces:
+              result.ownerHasOtherActiveTeamWorkspaces,
+          }),
+      });
+    } catch (error) {
+      billingCancellationError =
+        error instanceof Error ? error.message : "Unknown billing error";
+
+      if (ADMIN_EMAIL) {
+        sendEmail({
+          to: ADMIN_EMAIL,
+          subject: `Workspace deletion billing follow-up: ${result.organizationName}`,
+          text: `A workspace was archived for deletion, but billing subscription cleanup failed.
+
+Workspace: ${result.organizationName}
+Workspace ID: ${organizationId}
+Owner ID: ${result.ownerId}
+Requested by: ${actorUserId}
+Scheduled deletion: ${deletionScheduledFor.toISOString()}
+
+Error: ${billingCancellationError}`,
+        });
+      }
+    }
+
+    return {
+      ...result,
+      deletionScheduledFor,
+      billingCancellationError,
+    };
+  } catch (cause) {
+    throw new ShelfError({
+      cause,
+      message: isLikeShelfError(cause)
+        ? cause.message
+        : "Something went wrong while deleting the workspace. Please try again or contact support.",
+      additionalData: { organizationId, actorUserId },
+      label,
+      status: isLikeShelfError(cause) ? cause.status : undefined,
+      shouldBeCaptured: !isLikeShelfError(cause),
     });
   }
 }
@@ -1100,4 +1299,54 @@ function filterRelevantSubscriptions(
     (sub) =>
       isTierSubscription(sub) || isAddonForOrganization(sub, organizationId)
   );
+}
+
+export function shouldCancelOwnerTierSubscriptionsOnWorkspaceDeletion({
+  workspaceType,
+  ownerHasOtherActiveTeamWorkspaces,
+}: {
+  workspaceType: OrganizationType;
+  ownerHasOtherActiveTeamWorkspaces: boolean;
+}) {
+  return (
+    workspaceType === OrganizationType.TEAM &&
+    !ownerHasOtherActiveTeamWorkspaces
+  );
+}
+
+async function cancelWorkspaceBillingSubscriptions({
+  ownerId,
+  organizationId,
+  cancelOwnerTierSubscriptions,
+}: {
+  ownerId: User["id"];
+  organizationId: Organization["id"];
+  cancelOwnerTierSubscriptions: boolean;
+}) {
+  if (!premiumIsEnabled || !stripe) return;
+
+  const activeSubscriptions = await getUserActiveSubscriptions(ownerId);
+  const subscriptionsToCancel = activeSubscriptions.filter(
+    (sub) =>
+      isAddonForOrganization(sub, organizationId) ||
+      (cancelOwnerTierSubscriptions && isTierSubscription(sub))
+  );
+
+  for (const subscription of subscriptionsToCancel) {
+    await stripe.subscriptions.update(subscription.id, {
+      metadata: {
+        ...subscription.metadata,
+        workspace_deletion_requested: "true",
+        ...(cancelOwnerTierSubscriptions && isTierSubscription(subscription)
+          ? {
+              workspace_last_team_deletion_requested: "true",
+              deleted_organization_id: organizationId,
+            }
+          : {}),
+      },
+    });
+    await stripe.subscriptions.cancel(subscription.id, {
+      prorate: false,
+    });
+  }
 }

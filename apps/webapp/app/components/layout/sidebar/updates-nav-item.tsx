@@ -26,7 +26,7 @@ export default function UpdatesNavItem() {
             />
             {hasUnread && (
               <div
-                className="absolute -right-1 -top-1 size-2 animate-pulse rounded-full bg-blue-500"
+                className="absolute -right-1 -top-1 size-2 animate-pulse rounded-full bg-primary-500"
                 style={{ animationDuration: "1s" }}
               />
             )}

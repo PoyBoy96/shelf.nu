@@ -7,6 +7,10 @@ import {
 } from "~/modules/barcode/validation";
 import { isQrId } from "~/utils/id";
 import { isShelfQrCode } from "~/utils/qr-code";
+import {
+  CANVAS_THEME_COLOR_FALLBACKS,
+  resolveThemeCanvasColor,
+} from "~/utils/theme-colors";
 import type { OnCodeDetectionSuccess } from "./code-scanner";
 
 // Supported barcode formats that match our BarcodeType enum
@@ -173,7 +177,10 @@ export const drawDetectionBox = (
 
   ctx.beginPath();
   ctx.lineWidth = 3;
-  ctx.strokeStyle = "#22c55e";
+  ctx.strokeStyle = resolveThemeCanvasColor(
+    "--color-success-600",
+    CANVAS_THEME_COLOR_FALLBACKS.success600
+  );
   ctx.moveTo(position.topLeft.x, position.topLeft.y);
   ctx.lineTo(position.topRight.x, position.topRight.y);
   ctx.lineTo(position.bottomRight.x, position.bottomRight.y);
@@ -188,7 +195,10 @@ export const drawDetectionBox = (
   ];
 
   corners.forEach((corner) => {
-    ctx.fillStyle = "red";
+    ctx.fillStyle = resolveThemeCanvasColor(
+      "--color-error-600",
+      CANVAS_THEME_COLOR_FALLBACKS.error600
+    );
     ctx.fillRect(corner.x - 2, corner.y - 2, 4, 4);
   });
 };

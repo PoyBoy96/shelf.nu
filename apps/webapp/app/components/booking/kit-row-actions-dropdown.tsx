@@ -62,7 +62,7 @@ function RemoveKitFromBooking({ kit }: { kit: Pick<Kit, "id" | "name"> }) {
           variant="link"
           icon="trash"
           className={tw(
-            "justify-start rounded-sm px-2 py-1.5 text-sm font-medium text-gray-700 outline-none  hover:bg-slate-100 hover:text-gray-700"
+            "justify-start rounded-sm px-2 py-1.5 text-sm font-medium text-gray-700 outline-none  hover:bg-gray-100 hover:text-gray-700"
           )}
           title={
             isArchived || isCompleted

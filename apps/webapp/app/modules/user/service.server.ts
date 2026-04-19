@@ -802,24 +802,32 @@ export async function updateUser<T extends Prisma.UserInclude>(
   const cleanClone = (({ password, confirmPassword, email, ...o }) => o)(
     updateUserPayload
   );
+  const shouldUpdateTeamMemberName =
+    updateUserPayload.displayName !== undefined ||
+    updateUserPayload.firstName !== undefined ||
+    updateUserPayload.lastName !== undefined;
 
   try {
     const updatedUser = await db.user.update({
       where: { id: updateUserPayload.id },
       data: {
         ...cleanClone,
-        teamMembers: {
-          updateMany: {
-            where: { userId: updateUserPayload.id },
-            data: {
-              name:
-                updateUserPayload.displayName ||
-                `${updateUserPayload.firstName || ""} ${
-                  updateUserPayload.lastName || ""
-                }`.trim(),
-            },
-          },
-        },
+        ...(shouldUpdateTeamMemberName
+          ? {
+              teamMembers: {
+                updateMany: {
+                  where: { userId: updateUserPayload.id },
+                  data: {
+                    name:
+                      updateUserPayload.displayName ||
+                      `${updateUserPayload.firstName || ""} ${
+                        updateUserPayload.lastName || ""
+                      }`.trim(),
+                  },
+                },
+              },
+            }
+          : {}),
       },
       include: {
         ...extraIncludes,

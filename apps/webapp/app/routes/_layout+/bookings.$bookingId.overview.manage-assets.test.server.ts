@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createActionArgs } from "@mocks/remix";
 
 import { db } from "~/database/db.server";
+import * as assetUtils from "~/modules/asset/utils.server";
 import * as bookingService from "~/modules/booking/service.server";
+import * as bookingTemplateService from "~/modules/booking-template/service.server";
 import * as noteService from "~/modules/note/service.server";
 import * as userService from "~/modules/user/service.server";
 import * as bookingAssets from "~/utils/booking-assets";
@@ -11,7 +13,12 @@ import * as httpServer from "~/utils/http.server";
 import * as rolesServer from "~/utils/roles.server";
 
 // Import the action function
-import { action } from "./bookings.$bookingId.overview.manage-assets";
+import {
+  action,
+  applyTemplateAssetsToSelection,
+  buildLastUserMap,
+  mergeTemplateAssetsIntoSelection,
+} from "./bookings.$bookingId.overview.manage-assets";
 import { assertIsDataWithResponseInit } from "../../../test/helpers/assertions";
 
 // @vitest-environment node
@@ -24,6 +31,12 @@ vi.mock("~/database/db.server", () => ({
     },
     asset: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    assetFavorite: {
+      upsert: vi.fn(),
+      deleteMany: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -34,8 +47,18 @@ vi.mock("~/modules/booking/service.server", () => ({
   removeAssets: vi.fn(),
 }));
 
+vi.mock("~/modules/booking-template/service.server", () => ({
+  applyBookingTemplate: vi.fn(),
+  createBookingTemplate: vi.fn(),
+  listBookingTemplatesForUser: vi.fn(),
+}));
+
 vi.mock("~/modules/user/service.server", () => ({
   getUserByID: vi.fn(),
+}));
+
+vi.mock("~/modules/booking/email-helpers", () => ({
+  sendBookingUpdatedEmail: vi.fn(),
 }));
 
 vi.mock("~/modules/note/service.server", () => ({
@@ -53,6 +76,7 @@ vi.mock("~/utils/roles.server", () => ({
 vi.mock("~/utils/http.server", () => ({
   getParams: vi.fn(),
   parseData: vi.fn(),
+  payload: vi.fn((data) => ({ error: null, ...data })),
   json: vi.fn((data) => data),
   getCurrentSearchParams: vi.fn(),
   error: vi.fn((reason) => reason),
@@ -88,6 +112,114 @@ const mockRequest = {
 
 const mockParams = { bookingId: "booking123" };
 
+describe("mergeTemplateAssetsIntoSelection", () => {
+  it("preserves existing selection and only adds new template assets", () => {
+    expect(
+      mergeTemplateAssetsIntoSelection(
+        [
+          { id: "asset-1", title: "Already selected" },
+          { id: "asset-2", title: "Already booked" },
+        ],
+        [
+          { id: "asset-2", title: "Already booked" },
+          { id: "asset-3", title: "New from template" },
+        ]
+      )
+    ).toEqual([{ id: "asset-3", title: "New from template" }]);
+  });
+});
+
+describe("applyTemplateAssetsToSelection", () => {
+  it("keeps existing booking assets selected while appending new template assets", () => {
+    expect(
+      applyTemplateAssetsToSelection(
+        [
+          { id: "asset-1", title: "Already selected" },
+          { id: "asset-2", title: "Already booked" },
+        ],
+        {
+          templateId: "template-1",
+          templateName: "Camera cart",
+          availableAssets: [
+            { id: "asset-2", title: "Already booked" },
+            { id: "asset-3", title: "New from template" },
+          ],
+          unavailableAssets: [{ id: "asset-4", title: "Unavailable" }],
+          missingAssets: [{ id: "asset-5", title: "Missing" }],
+        }
+      )
+    ).toEqual({
+      nextSelectedBulkItems: [
+        { id: "asset-1", title: "Already selected" },
+        { id: "asset-2", title: "Already booked" },
+        { id: "asset-3", title: "New from template" },
+      ],
+      templateApplySummary: {
+        templateId: "template-1",
+        templateName: "Camera cart",
+        availableAssets: [{ id: "asset-3", title: "New from template" }],
+        unavailableAssets: [{ id: "asset-4", title: "Unavailable" }],
+        missingAssets: [{ id: "asset-5", title: "Missing" }],
+      },
+    });
+  });
+});
+
+describe("buildLastUserMap", () => {
+  it("prefers the newest booking per asset and formats users consistently", () => {
+    const result = buildLastUserMap([
+      {
+        id: "booking-new",
+        assets: [{ id: "asset-1" }, { id: "asset-2" }],
+        custodianUser: {
+          displayName: "Scout User",
+          firstName: "Ignored",
+          lastName: "Name",
+        },
+        custodianTeamMember: null,
+      },
+      {
+        id: "booking-old",
+        assets: [{ id: "asset-1" }, { id: "asset-3" }],
+        custodianUser: null,
+        custodianTeamMember: {
+          name: "Camera Team",
+          user: null,
+        },
+      },
+    ]);
+
+    expect(result).toEqual({
+      "asset-1": { bookingId: "booking-new", name: "Scout User" },
+      "asset-2": { bookingId: "booking-new", name: "Scout User" },
+      "asset-3": { bookingId: "booking-old", name: "Camera Team" },
+    });
+  });
+
+  it("uses linked team member user names when available", () => {
+    const result = buildLastUserMap([
+      {
+        id: "booking-1",
+        assets: [{ id: "asset-9" }],
+        custodianUser: null,
+        custodianTeamMember: {
+          name: "Fallback Name",
+          user: {
+            displayName: null,
+            firstName: "Jamie",
+            lastName: "Rivera",
+          },
+        },
+      },
+    ]);
+
+    expect(result["asset-9"]).toEqual({
+      bookingId: "booking-1",
+      name: "Jamie Rivera",
+    });
+  });
+});
+
 describe("manage-assets route validation", () => {
   const mockUser = {
     id: "user123",
@@ -100,11 +232,14 @@ describe("manage-assets route validation", () => {
 
   const mockBooking = {
     id: "booking123",
+    name: "Test Booking",
     status: BookingStatus.ONGOING,
-    assets: [{ id: "asset1" }, { id: "asset2" }],
+    assets: [
+      { id: "asset1", title: "Asset 1", sequentialId: "AST-001" },
+      { id: "asset2", title: "Asset 2", sequentialId: "AST-002" },
+    ],
     from: new Date(),
     to: new Date(),
-    name: "Test Booking",
     organizationId: "org123",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -112,6 +247,13 @@ describe("manage-assets route validation", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequest.formData = () => Promise.resolve(new FormData());
+    vi.mocked(httpServer.getCurrentSearchParams).mockReturnValue(
+      new URLSearchParams()
+    );
+    vi.mocked(assetUtils.getAssetsWhereInput).mockReturnValue({
+      organizationId: "org123",
+    } as any);
 
     // Setup default mocks
     vi.mocked(rolesServer.requirePermission).mockResolvedValue({
@@ -133,6 +275,7 @@ describe("manage-assets route validation", () => {
 
     vi.mocked(userService.getUserByID).mockResolvedValue(mockUser);
     vi.mocked(db.booking.findUniqueOrThrow).mockResolvedValue(mockBooking);
+    vi.mocked(db.asset.findFirst).mockResolvedValue({ id: "asset1" } as any);
     vi.mocked(bookingService.getDetailedPartialCheckinData).mockResolvedValue({
       checkedInAssetIds: [],
       partialCheckinDetails: {},
@@ -146,7 +289,292 @@ describe("manage-assets route validation", () => {
     vi.mocked(bookingService.removeAssets).mockResolvedValue({} as any);
   });
 
+  describe("favorite actions", () => {
+    it("should create a favorite for the current user", async () => {
+      const formData = new FormData();
+      formData.set("intent", "toggle-favorite");
+      formData.set("assetId", "asset1");
+      formData.set("isFavorite", "true");
+      mockRequest.formData = () => Promise.resolve(formData);
+
+      const response = await action(
+        createActionArgs({
+          context: mockContext,
+          request: mockRequest,
+          params: mockParams,
+        })
+      );
+
+      expect(db.assetFavorite.upsert).toHaveBeenCalledWith({
+        where: {
+          organizationId_ownerId_assetId: {
+            organizationId: "org123",
+            ownerId: "user123",
+            assetId: "asset1",
+          },
+        },
+        update: {},
+        create: {
+          organizationId: "org123",
+          ownerId: "user123",
+          assetId: "asset1",
+        },
+      });
+      expect(response).toMatchObject({
+        intent: "toggle-favorite",
+        assetId: "asset1",
+        isFavorite: true,
+      });
+    });
+
+    it("should remove a favorite for the current user", async () => {
+      const formData = new FormData();
+      formData.set("intent", "toggle-favorite");
+      formData.set("assetId", "asset1");
+      formData.set("isFavorite", "false");
+      mockRequest.formData = () => Promise.resolve(formData);
+
+      const response = await action(
+        createActionArgs({
+          context: mockContext,
+          request: mockRequest,
+          params: mockParams,
+        })
+      );
+
+      expect(db.assetFavorite.deleteMany).toHaveBeenCalledWith({
+        where: {
+          organizationId: "org123",
+          ownerId: "user123",
+          assetId: "asset1",
+        },
+      });
+      expect(response).toMatchObject({
+        intent: "toggle-favorite",
+        assetId: "asset1",
+        isFavorite: false,
+      });
+    });
+  });
+
+  describe("template actions", () => {
+    it("returns template application payload without redirecting", async () => {
+      const formData = new FormData();
+      formData.set("intent", "apply-template");
+      mockRequest.formData = () => Promise.resolve(formData);
+
+      vi.mocked(httpServer.parseData).mockReturnValue({
+        templateId: "template-1",
+      } as any);
+      vi.mocked(db.booking.findUniqueOrThrow).mockResolvedValue({
+        id: "booking123",
+        status: BookingStatus.DRAFT,
+      } as any);
+      vi.mocked(bookingTemplateService.applyBookingTemplate).mockResolvedValue({
+        templateId: "template-1",
+        templateName: "Camera cart",
+        availableAssets: [
+          { id: "asset-1", title: "Body", sequentialId: null, kitId: null },
+        ],
+        unavailableAssets: [],
+        missingAssets: [],
+      });
+
+      const response = await action(
+        createActionArgs({
+          context: mockContext,
+          request: mockRequest,
+          params: mockParams,
+        })
+      );
+
+      expect(response).toEqual({
+        error: null,
+        intent: "apply-template",
+        templateApplication: {
+          templateId: "template-1",
+          templateName: "Camera cart",
+          availableAssets: [
+            { id: "asset-1", title: "Body", sequentialId: null, kitId: null },
+          ],
+          unavailableAssets: [],
+          missingAssets: [],
+        },
+      });
+    });
+
+    it("rejects apply-template direct posts for disallowed booking statuses", async () => {
+      const formData = new FormData();
+      formData.set("intent", "apply-template");
+      mockRequest.formData = () => Promise.resolve(formData);
+
+      vi.mocked(httpServer.parseData).mockReturnValue({
+        templateId: "template-1",
+      } as any);
+      vi.mocked(db.booking.findUniqueOrThrow).mockResolvedValue({
+        ...mockBooking,
+        status: BookingStatus.CANCELLED,
+      } as any);
+
+      const response = await action(
+        createActionArgs({
+          context: mockContext,
+          request: mockRequest,
+          params: mockParams,
+        })
+      );
+
+      assertIsDataWithResponseInit(response);
+      expect(response.init?.status).toBe(500);
+      expect(
+        bookingTemplateService.applyBookingTemplate
+      ).not.toHaveBeenCalled();
+    });
+
+    it("rejects create-template direct posts for self-service users on non-draft bookings", async () => {
+      const formData = new FormData();
+      formData.set("intent", "create-template");
+      mockRequest.formData = () => Promise.resolve(formData);
+
+      vi.mocked(rolesServer.requirePermission).mockResolvedValue({
+        organizationId: "org123",
+        isSelfServiceOrBase: true,
+        organizations: [],
+        currentOrganization: {} as any,
+        role: {} as any,
+        userOrganizations: [],
+        canSeeAllBookings: false,
+        canSeeAllCustody: false,
+        canUseBarcodes: false,
+        canUseAudits: false,
+      });
+      vi.mocked(httpServer.parseData).mockReturnValue({
+        name: "Camera cart",
+      } as any);
+      vi.mocked(db.booking.findUniqueOrThrow).mockResolvedValue({
+        ...mockBooking,
+        status: BookingStatus.RESERVED,
+      } as any);
+
+      const response = await action(
+        createActionArgs({
+          context: mockContext,
+          request: mockRequest,
+          params: mockParams,
+        })
+      );
+
+      assertIsDataWithResponseInit(response);
+      expect(response.init?.status).toBe(500);
+      expect(
+        bookingTemplateService.createBookingTemplate
+      ).not.toHaveBeenCalled();
+    });
+
+    it("creates a template from persisted non-kit booking assets", async () => {
+      const formData = new FormData();
+      formData.set("intent", "create-template");
+      mockRequest.formData = () => Promise.resolve(formData);
+
+      vi.mocked(httpServer.parseData).mockReturnValue({
+        name: "Camera cart",
+      } as any);
+      vi.mocked(db.booking.findUniqueOrThrow).mockResolvedValue({
+        assets: [{ id: "asset-1", title: "Body", sequentialId: "CAM-001" }],
+      } as any);
+      vi.mocked(bookingTemplateService.createBookingTemplate).mockResolvedValue(
+        {
+          id: "template-1",
+          name: "Camera cart",
+          items: [
+            { assetId: "asset-1", title: "Body", sequentialId: "CAM-001" },
+          ],
+        } as any
+      );
+
+      const response = await action(
+        createActionArgs({
+          context: mockContext,
+          request: mockRequest,
+          params: mockParams,
+        })
+      );
+
+      expect(bookingTemplateService.createBookingTemplate).toHaveBeenCalledWith(
+        {
+          organizationId: "org123",
+          ownerId: "user123",
+          name: "Camera cart",
+          items: [
+            { assetId: "asset-1", title: "Body", sequentialId: "CAM-001" },
+          ],
+        }
+      );
+      expect(response).toEqual({
+        error: null,
+        intent: "create-template",
+        createdTemplate: {
+          id: "template-1",
+          name: "Camera cart",
+          itemCount: 1,
+        },
+      });
+    });
+  });
+
   describe("validation scope - only newly added assets", () => {
+    it("expands ALL_SELECTED_KEY using the current filtered asset query", async () => {
+      vi.mocked(httpServer.parseData).mockReturnValue({
+        assetIds: ["all-selected"],
+        removedAssetIds: ["asset4"],
+        redirectTo: null,
+      });
+      vi.mocked(httpServer.getCurrentSearchParams).mockReturnValue(
+        new URLSearchParams("favoritesOnly=true&search=sony")
+      );
+      vi.mocked(assetUtils.getAssetsWhereInput).mockReturnValue({
+        organizationId: "org123",
+        assetFavorites: {
+          some: {
+            organizationId: "org123",
+            ownerId: "user123",
+          },
+        },
+      } as any);
+      vi.mocked(db.asset.findMany)
+        .mockResolvedValueOnce([
+          { id: "asset1" },
+          { id: "asset3" },
+          { id: "asset4" },
+        ] as any)
+        .mockResolvedValueOnce([{ id: "asset2" }] as any)
+        .mockResolvedValueOnce([] as any);
+
+      const response = await action(
+        createActionArgs({
+          context: mockContext,
+          request: mockRequest,
+          params: mockParams,
+        })
+      );
+
+      expect(httpServer.getCurrentSearchParams).toHaveBeenCalledWith(
+        mockRequest
+      );
+      expect(assetUtils.getAssetsWhereInput).toHaveBeenCalledWith({
+        organizationId: "org123",
+        currentSearchParams: "favoritesOnly=true&search=sony",
+        userId: "user123",
+      });
+      expect(bookingService.updateBookingAssets).toHaveBeenCalledWith({
+        id: "booking123",
+        organizationId: "org123",
+        assetIds: ["asset3"],
+        userId: "user123",
+      });
+      expect(response).toBeInstanceOf(Response);
+    });
+
     it("should only validate assets that are NEW to the booking", async () => {
       const mockAssets = [
         {
@@ -192,11 +620,13 @@ describe("manage-assets route validation", () => {
       expect(bookingAssets.isAssetPartiallyCheckedIn).toHaveBeenCalledTimes(2);
       expect(bookingAssets.isAssetPartiallyCheckedIn).toHaveBeenCalledWith(
         mockAssets[0],
-        {}
+        {},
+        BookingStatus.ONGOING
       );
       expect(bookingAssets.isAssetPartiallyCheckedIn).toHaveBeenCalledWith(
         mockAssets[1],
-        {}
+        {},
+        BookingStatus.ONGOING
       );
     });
 
@@ -288,7 +718,8 @@ describe("manage-assets route validation", () => {
 
       expect(bookingAssets.isAssetPartiallyCheckedIn).toHaveBeenCalledWith(
         mockAssets[0],
-        mockPartialCheckinDetails
+        mockPartialCheckinDetails,
+        BookingStatus.ONGOING
       );
     });
 
@@ -543,7 +974,8 @@ describe("manage-assets route validation", () => {
       // Verify helper is called with correct parameters
       expect(bookingAssets.isAssetPartiallyCheckedIn).toHaveBeenCalledWith(
         mockAssets[0],
-        mockPartialCheckinDetails
+        mockPartialCheckinDetails,
+        BookingStatus.ONGOING
       );
     });
   });
@@ -575,12 +1007,13 @@ describe("manage-assets route validation", () => {
         id: "booking123",
         organizationId: "org123",
         assetIds: ["asset3"], // only the new asset
+        userId: "user123",
       });
 
       // Verify note creation for new assets
       expect(noteService.createNotes).toHaveBeenCalledWith({
         content:
-          "**John Doe** added asset to booking **[Test Booking](/bookings/booking123)**.",
+          '{% link to="/settings/team/users/user123" text="John Doe" /%} added asset to {% link to="/bookings/booking123" text="Test Booking" /%}.',
         type: "UPDATE",
         userId: "user123",
         assetIds: ["asset3"], // only the new asset
@@ -615,6 +1048,7 @@ describe("manage-assets route validation", () => {
         lastName: "Doe",
         userId: "user123",
         organizationId: "org123",
+        assets: [],
       });
     });
 

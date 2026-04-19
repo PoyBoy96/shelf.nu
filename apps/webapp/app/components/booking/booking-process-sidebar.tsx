@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from "../shared/sheet";
 
 type BookingProcessSidebarProps = {
   className?: string;
+  viewer?: "requester" | "manager";
 };
 
 type ProcessItem = {
@@ -17,39 +18,99 @@ type ProcessItem = {
   iconClassName: string;
 };
 
-const ITEMS: Array<ProcessItem> = [
+const PROCESS_CONTENT: Record<
+  NonNullable<BookingProcessSidebarProps["viewer"]>,
   {
-    icon: ClockIcon,
-    title: "Submit Request",
-    description: `Fill in all required information and select the assets you need. Click "Request reservation" to submit your request.`,
-    iconClassName: "bg-blue-100 text-blue-500",
+    intro: string;
+    items: Array<ProcessItem>;
+    notes: string[];
+  }
+> = {
+  requester: {
+    intro:
+      "Booking requests happen in two steps: reserve the dates first, then pick up the gear when an administrator checks it out.",
+    items: [
+      {
+        icon: ClockIcon,
+        title: "Request reservation",
+        description:
+          'Fill in the booking details, add your assets, then click "Request reservation" to hold the dates for review.',
+        iconClassName: "bg-primary-100 text-primary-500",
+      },
+      {
+        icon: InfoIcon,
+        title: "Reservation confirmed",
+        description:
+          "Once the request is approved, the booking becomes reserved. This saves the dates, but the gear has not been handed over yet.",
+        iconClassName: "bg-warning-100 text-warning-500",
+      },
+      {
+        icon: ArrowRight,
+        title: "Pick up and check-out",
+        description:
+          "On the booking start date, an administrator checks out the gear during handoff. That starts the active booking period.",
+        iconClassName: "bg-success-100 text-success-600",
+      },
+      {
+        icon: ArrowLeft,
+        title: "Return and check-in",
+        description:
+          "When you bring the gear back, an administrator checks it back in to complete the booking.",
+        iconClassName: "bg-gray-100 text-gray-700",
+      },
+    ],
+    notes: [
+      "A reserved booking blocks the dates, but it does not mark the gear as picked up yet.",
+      "If you need to extend your booking, contact an administrator before the end date.",
+      "Administrators have final say on booking approvals based on availability and priorities.",
+    ],
   },
-  {
-    icon: InfoIcon,
-    title: "Admin Review",
-    description:
-      "Your booking will be shown as reserved, however the admin can choose to revert it back to draft or cancel it at any point, if there are any conflicts with other bookings.",
-    iconClassName: "bg-warning-100 text-warning-500",
+  manager: {
+    intro:
+      "Bookings are intentionally split into reservation and check-out so the calendar hold and the physical handoff happen at the right times.",
+    items: [
+      {
+        icon: ClockIcon,
+        title: "Save or update draft",
+        description:
+          "Build the booking, confirm the dates, and make sure the selected assets are correct before reserving it.",
+        iconClassName: "bg-primary-100 text-primary-500",
+      },
+      {
+        icon: InfoIcon,
+        title: "Reserve dates",
+        description:
+          "Reserve locks the booking into the schedule and prevents conflicting use, but it does not check the gear out yet.",
+        iconClassName: "bg-warning-100 text-warning-500",
+      },
+      {
+        icon: ArrowRight,
+        title: "Check out on handoff",
+        description:
+          "Use check-out when the custodian actually receives the gear. That starts the active booking and updates live availability.",
+        iconClassName: "bg-success-100 text-success-600",
+      },
+      {
+        icon: ArrowLeft,
+        title: "Check in on return",
+        description:
+          "When the gear comes back, check it in to complete the booking and return the assets to available status.",
+        iconClassName: "bg-gray-100 text-gray-700",
+      },
+    ],
+    notes: [
+      "Reserve is the schedule approval step. Check-out is the physical handoff step.",
+      "Early check-out can adjust the booking start time when gear leaves sooner than planned.",
+      "Use check-in when the gear is returned so inventory status stays accurate.",
+    ],
   },
-  {
-    icon: ArrowRight,
-    title: "Check-Out",
-    description:
-      "On the start date of your booking, an administrator will check out the equipment on your behalf. You'll be responsible for the equipment during your booking period.",
-    iconClassName: "bg-violet-100 text-violet-500",
-  },
-  {
-    icon: ArrowLeft,
-    title: "Check-In",
-    description:
-      "At the end of you booking period, return the equipment to the administrator who will perform the check in action.",
-    iconClassName: "bg-indigo-100 text-indigo-500",
-  },
-];
+};
 
 export default function BookingProcessSidebar({
   className,
+  viewer = "requester",
 }: BookingProcessSidebarProps) {
+  const content = PROCESS_CONTENT[viewer];
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -65,7 +126,7 @@ export default function BookingProcessSidebar({
         hideCloseButton
         className={tw("border-l-0 bg-white p-0", className)}
       >
-        <div className="flex items-center justify-between bg-blue-500 p-4 text-white">
+        <div className="flex items-center justify-between bg-primary-500 p-4 text-white">
           <div className="flex items-center gap-2 text-lg font-bold">
             <InfoIcon className="size-4" />
             Booking Process
@@ -78,14 +139,12 @@ export default function BookingProcessSidebar({
         </div>
 
         <div className="p-4">
-          <p className="mb-8 border-l-4 border-blue-500 bg-blue-50 p-2 text-blue-500">
-            Base users reserve bookings that require admin approval and can be
-            cancelled at any time if there are conflicts with other bookings.
-            Admins handle equipment check-out and check-in.
+          <p className="mb-8 border-l-4 border-primary-500 bg-primary-50 p-2 text-primary-500">
+            {content.intro}
           </p>
 
           <div className="mb-8 flex flex-col gap-4">
-            {ITEMS.map((item, i) => (
+            {content.items.map((item, i) => (
               <div key={i} className="flex items-start gap-4">
                 <div
                   className={tw(
@@ -111,18 +170,9 @@ export default function BookingProcessSidebar({
             <h3 className="mb-1">Important Notes</h3>
 
             <ul className="list-inside list-disc">
-              <li>
-                Equipment must be returned in the same condition it was checked
-                out.
-              </li>
-              <li>
-                If you need to extend your booking, contact an administrator
-                before your booking end date.
-              </li>
-              <li>
-                Administrators have final say on booking approvals based on
-                equipment availability and priorities.
-              </li>
+              {content.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
             </ul>
           </div>
         </div>

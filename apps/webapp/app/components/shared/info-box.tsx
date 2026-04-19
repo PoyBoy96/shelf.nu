@@ -14,7 +14,7 @@ export function InfoBox({
   return (
     <div
       className={tw(
-        "relative rounded border border-blue-500 bg-blue-50 p-4 text-sm text-blue-500 ",
+        "relative rounded border border-primary-300 bg-primary-25 p-4 text-sm text-primary-700",
         visible ? "block" : "hidden",
         rest?.className || ""
       )}

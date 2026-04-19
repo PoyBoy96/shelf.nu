@@ -132,7 +132,7 @@ const ConditionalActionsDropdown = () => {
                       to="overview/release-custody"
                       role="link"
                       variant="link"
-                      className="justify-start whitespace-nowrap px-4 py-3 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+                      className="justify-start whitespace-nowrap px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
                       width="full"
                       onClick={handleMenuClose}
                       disabled={
@@ -150,7 +150,7 @@ const ConditionalActionsDropdown = () => {
                       to="overview/assign-custody"
                       role="link"
                       variant="link"
-                      className="justify-start px-4 py-3 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+                      className="justify-start px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
                       width="full"
                       onClick={handleMenuClose}
                       disabled={custodyActionDisabled}
@@ -179,7 +179,7 @@ const ConditionalActionsDropdown = () => {
                     to="overview/update-location"
                     role="link"
                     variant="link"
-                    className="justify-start px-4 py-3 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+                    className="justify-start px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
                     width="full"
                     onClick={handleMenuClose}
                     disabled={
@@ -215,7 +215,7 @@ const ConditionalActionsDropdown = () => {
                     type="button"
                     role="button"
                     variant="link"
-                    className="justify-start px-4 py-3 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+                    className="justify-start px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
                     width="full"
                     onClick={() => {
                       handleMenuClose();
@@ -234,7 +234,7 @@ const ConditionalActionsDropdown = () => {
                       type="button"
                       role="button"
                       variant="link"
-                      className="justify-start px-4 py-3 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+                      className="justify-start px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
                       width="full"
                       onClick={() => {
                         handleMenuClose();
@@ -253,7 +253,7 @@ const ConditionalActionsDropdown = () => {
                     to="edit"
                     role="link"
                     variant="link"
-                    className="justify-start px-4 py-3 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+                    className="justify-start px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
                     width="full"
                   >
                     <span className="flex items-center gap-2">
@@ -266,7 +266,7 @@ const ConditionalActionsDropdown = () => {
                     to="overview/duplicate"
                     role="link"
                     variant="link"
-                    className="justify-start px-4 py-3 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+                    className="justify-start px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
                     width="full"
                     onClick={handleMenuClose}
                   >
@@ -289,7 +289,7 @@ const ConditionalActionsDropdown = () => {
                         variant="link"
                         data-test-id="deleteAssetButton"
                         icon="trash"
-                        className="justify-start rounded-sm px-4 py-3 text-sm font-semibold text-gray-700 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-slate-100 hover:text-gray-700"
+                        className="justify-start rounded-sm px-4 py-3 text-sm font-semibold text-gray-700 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-gray-100 hover:text-gray-700"
                         width="full"
                         disabled={
                           assetIsCheckedOut || assetIsPartOfUnavailableKit

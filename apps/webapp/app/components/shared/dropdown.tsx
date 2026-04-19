@@ -60,7 +60,7 @@ const DropdownMenuSubContent = React.forwardRef<
     <DropdownMenuPrimitive.SubContent
       ref={ref}
       className={tw(
-        "z-50 min-w-32 overflow-hidden rounded border border-slate-100 bg-white shadow-md animate-in  slide-in-from-left-1 ",
+        "z-50 min-w-32 overflow-hidden rounded border border-gray-100 bg-white shadow-md animate-in slide-in-from-left-1",
         className
       )}
       {...props}
@@ -105,7 +105,7 @@ const DropdownMenuItem = React.forwardRef<
     <DropdownMenuPrimitive.Item
       ref={ref}
       className={tw(
-        "relative flex cursor-default select-none items-center px-2 py-1.5 text-sm font-medium outline-none  focus:bg-slate-100 ",
+        "relative flex cursor-default select-none items-center px-2 py-1.5 text-sm font-medium outline-none focus:bg-gray-100",
         inset && "pl-8",
         disabled && "pointer-events-none cursor-not-allowed opacity-50",
         className
@@ -126,7 +126,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
     <DropdownMenuPrimitive.CheckboxItem
       ref={ref}
       className={tw(
-        "relative flex cursor-default select-none items-center rounded px-2 py-1.5 text-sm font-medium outline-none  focus:bg-slate-100 ",
+        "relative flex cursor-default select-none items-center rounded px-2 py-1.5 text-sm font-medium outline-none focus:bg-gray-100",
         className
       )}
       checked={checked}
@@ -150,7 +150,7 @@ const DropdownMenuRadioItem = React.forwardRef<
     <DropdownMenuPrimitive.RadioItem
       ref={ref}
       className={tw(
-        "relative flex cursor-default select-none items-center rounded-[4px] py-1.5 pl-8 pr-2 text-sm font-medium outline-none  focus:bg-slate-100",
+        "relative flex cursor-default select-none items-center rounded-[4px] py-1.5 pl-8 pr-2 text-sm font-medium outline-none focus:bg-gray-100",
         className
       )}
       {...props}
@@ -191,7 +191,7 @@ const DropdownMenuSeparator = React.forwardRef<
   return (
     <DropdownMenuPrimitive.Separator
       ref={ref}
-      className={tw("-mx-1 my-1 h-px bg-slate-100 ", className)}
+      className={tw("-mx-1 my-1 h-px bg-gray-100 ", className)}
       {...props}
     />
   );

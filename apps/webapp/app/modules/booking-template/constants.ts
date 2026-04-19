@@ -1,0 +1,1 @@
+export const MAX_SAVED_BOOKING_TEMPLATES = 20;

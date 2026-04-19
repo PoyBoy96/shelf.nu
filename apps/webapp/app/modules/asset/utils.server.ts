@@ -446,9 +446,11 @@ export const CurrentSearchParamsSchema = z.object({
 export function getAssetsWhereInput({
   organizationId,
   currentSearchParams,
+  userId,
 }: {
   organizationId: Asset["organizationId"];
   currentSearchParams?: string | null;
+  userId?: string | null;
 }) {
   const where: Prisma.AssetWhereInput = { organizationId };
 
@@ -461,6 +463,7 @@ export function getAssetsWhereInput({
 
   const { categoriesIds, locationIds, tagsIds, search, teamMemberIds } =
     paramsValues;
+  const favoritesOnly = searchParams.get("favoritesOnly") === "true";
 
   const status =
     searchParams.get("status") === "ALL" // If the value is "ALL", we just remove the param
@@ -471,6 +474,15 @@ export function getAssetsWhereInput({
     where.title = {
       contains: search.toLowerCase().trim(),
       mode: "insensitive",
+    };
+  }
+
+  if (favoritesOnly && userId) {
+    where.assetFavorites = {
+      some: {
+        organizationId,
+        ownerId: userId,
+      },
     };
   }
 

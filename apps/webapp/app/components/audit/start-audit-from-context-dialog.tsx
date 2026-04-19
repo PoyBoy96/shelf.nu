@@ -172,7 +172,7 @@ export function StartAuditFromContextDialog({
         <Button
           type="button"
           variant="link"
-          className="w-full justify-start px-4 py-3 text-gray-700 hover:bg-slate-100 hover:text-gray-700"
+          className="w-full justify-start px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-700"
           width="full"
           onClick={openDialog}
         >

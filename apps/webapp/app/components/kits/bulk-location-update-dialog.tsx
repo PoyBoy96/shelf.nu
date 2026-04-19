@@ -35,8 +35,8 @@ export default function KitBulkLocationUpdateDialog() {
             ) : null}
           </div>
 
-          <div className="mb-6 rounded-md border border-blue-200 bg-blue-50 p-3">
-            <p className="text-sm text-blue-800">
+          <div className="mb-6 rounded-md border border-primary-200 bg-primary-25 p-3">
+            <p className="text-sm text-primary-800">
               <strong>Location Update Notice:</strong> Changing kit locations
               will also automatically update the location of all assets within
               those kits.

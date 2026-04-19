@@ -19,6 +19,7 @@ import {
 } from "~/components/user/display-name-form";
 import PasswordResetForm from "~/components/user/password-reset-form";
 import { RequestDeleteUser } from "~/components/user/request-delete-user";
+import { ThemeForm, ThemeFormSchema } from "~/components/user/theme-form";
 import {
   UserContactDetailsForm,
   UserContactDetailsFormSchema,
@@ -61,6 +62,7 @@ const IntentSchema = z.object({
     "resetPassword",
     "updateUser",
     "updateDisplayName",
+    "updateTheme",
     "deleteUser",
     "initiateEmailChange",
     "verifyEmailChange",
@@ -80,6 +82,10 @@ const ActionSchemas = {
 
   updateDisplayName: DisplayNameFormSchema.extend({
     type: z.literal("updateDisplayName"),
+  }),
+
+  updateTheme: ThemeFormSchema.extend({
+    type: z.literal("updateTheme"),
   }),
 
   updateUserContact: UserContactDetailsFormSchema.extend({
@@ -217,6 +223,24 @@ export async function action({ context, request }: ActionFunctionArgs) {
         });
 
         return payload({ success: true });
+      }
+      case "updateTheme": {
+        if (parsedData.type !== "updateTheme")
+          throw new Error("Invalid payload type");
+
+        await updateUser({
+          id: userId,
+          theme: parsedData.theme,
+        });
+
+        sendNotification({
+          title: "Theme updated",
+          message: "Your theme has been updated successfully",
+          icon: { name: "success", variant: "success" },
+          senderId: authSession.userId,
+        });
+
+        return payload({ success: true, theme: parsedData.theme });
       }
       case "updateUserContact": {
         if (parsedData.type !== "updateUserContact")
@@ -453,6 +477,7 @@ export default function UserPage() {
     <div className="mb-2.5 flex flex-col justify-between gap-3">
       <UserDetailsForm user={user} />
       {user.sso ? <DisplayNameForm user={user} /> : null}
+      <ThemeForm user={user} />
       <UserContactDetailsForm user={user} />
       {!user.sso && (
         <>

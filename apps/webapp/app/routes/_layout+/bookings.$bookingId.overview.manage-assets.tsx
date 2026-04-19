@@ -9,6 +9,7 @@ import type {
 } from "@prisma/client";
 import { AssetStatus, BookingStatus } from "@prisma/client";
 import { useAtomValue, useSetAtom } from "jotai";
+import { Star } from "lucide-react";
 import type {
   ActionFunctionArgs,
   LinksFunction,
@@ -17,6 +18,7 @@ import type {
 import {
   data,
   redirect,
+  useFetcher,
   useLoaderData,
   useNavigate,
   useNavigation,
@@ -41,6 +43,7 @@ import { StatusFilter } from "~/components/booking/status-filter";
 import styles from "~/components/booking/styles.css?url";
 import { Form } from "~/components/custom-form";
 import DynamicDropdown from "~/components/dynamic-dropdown/dynamic-dropdown";
+import Input from "~/components/forms/input";
 import { ChevronRight } from "~/components/icons/library";
 import ImageWithPreview from "~/components/image-with-preview/image-with-preview";
 import { List } from "~/components/list";
@@ -61,6 +64,7 @@ import UnsavedChangesAlert from "~/components/unsaved-changes-alert";
 
 import When from "~/components/when/when";
 import { db } from "~/database/db.server";
+import { useSearchParams } from "~/hooks/search-params";
 import { LOCATION_WITH_HIERARCHY } from "~/modules/asset/fields";
 import { getPaginatedAndFilterableAssets } from "~/modules/asset/service.server";
 import type { AssetsFromViewItem } from "~/modules/asset/types";
@@ -73,6 +77,15 @@ import {
   removeAssets,
   updateBookingAssets,
 } from "~/modules/booking/service.server";
+import {
+  ApplyBookingTemplateFormSchema,
+  CreateBookingTemplateFormSchema,
+} from "~/modules/booking-template/schemas";
+import {
+  applyBookingTemplate,
+  createBookingTemplate,
+  listBookingTemplatesForUser,
+} from "~/modules/booking-template/service.server";
 import { createNotes } from "~/modules/note/service.server";
 import { getUserByID } from "~/modules/user/service.server";
 import { appendToMetaTitle } from "~/utils/append-to-meta-title";
@@ -94,6 +107,7 @@ import {
   PermissionEntity,
 } from "~/utils/permissions/permission.data";
 import { requirePermission } from "~/utils/roles.server";
+import { resolveUserDisplayName } from "~/utils/user";
 
 export type AssetWithBooking = Asset & {
   bookings: Booking[];
@@ -104,9 +118,135 @@ export type AssetWithBooking = Asset & {
   qrScanned: string;
 };
 
+export type LastUserInfo = {
+  bookingId: string;
+  name: string;
+};
+
+export function mergeTemplateAssetsIntoSelection<
+  TCurrentAsset extends { id: string },
+  TTemplateAsset extends { id: string },
+>(
+  currentSelection: TCurrentAsset[],
+  templateAvailableAssets: TTemplateAsset[]
+) {
+  const currentSelectionIds = new Set(
+    currentSelection.map((asset) => asset.id)
+  );
+
+  return templateAvailableAssets.filter(
+    (asset) => !currentSelectionIds.has(asset.id)
+  );
+}
+
+export function applyTemplateAssetsToSelection<
+  TCurrentAsset extends { id: string },
+  TTemplateAsset extends { id: string },
+  TTemplateApplication extends {
+    availableAssets: TTemplateAsset[];
+    unavailableAssets: unknown[];
+    missingAssets: unknown[];
+    templateId: string;
+    templateName: string;
+  },
+>(
+  currentSelection: TCurrentAsset[],
+  templateApplication: TTemplateApplication
+) {
+  const newlyAddedAssets = mergeTemplateAssetsIntoSelection(
+    currentSelection,
+    templateApplication.availableAssets
+  );
+
+  return {
+    nextSelectedBulkItems: [...currentSelection, ...newlyAddedAssets],
+    templateApplySummary: {
+      ...templateApplication,
+      availableAssets: newlyAddedAssets,
+    },
+  };
+}
+
+export function buildLastUserMap(
+  bookings: Array<{
+    id: string;
+    assets: Array<{ id: string }>;
+    custodianUser: {
+      displayName: string | null;
+      firstName: string | null;
+      lastName: string | null;
+    } | null;
+    custodianTeamMember: {
+      name: string;
+      user: {
+        displayName: string | null;
+        firstName: string | null;
+        lastName: string | null;
+      } | null;
+    } | null;
+  }>
+): Record<string, LastUserInfo> {
+  return bookings.reduce<Record<string, LastUserInfo>>((acc, booking) => {
+    const lastUserName = booking.custodianUser
+      ? resolveUserDisplayName(booking.custodianUser)
+      : booking.custodianTeamMember?.user
+      ? resolveUserDisplayName(booking.custodianTeamMember.user)
+      : booking.custodianTeamMember?.name ?? "";
+
+    if (!lastUserName) {
+      return acc;
+    }
+
+    booking.assets.forEach((asset) => {
+      if (!acc[asset.id]) {
+        acc[asset.id] = {
+          bookingId: booking.id,
+          name: lastUserName,
+        };
+      }
+    });
+
+    return acc;
+  }, {});
+}
+
 export const meta = () => [{ title: appendToMetaTitle("Manage assets") }];
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
+
+function assertBookingAssetsManageable({
+  bookingStatus,
+  isSelfServiceOrBase,
+}: {
+  bookingStatus: BookingStatus;
+  isSelfServiceOrBase: boolean;
+}) {
+  const cantManageAssetsAsBaseOrSelfService =
+    isSelfServiceOrBase && bookingStatus !== BookingStatus.DRAFT;
+
+  const isNotAllowedStatus = (
+    [
+      BookingStatus.CANCELLED,
+      BookingStatus.ARCHIVED,
+      BookingStatus.COMPLETE,
+    ] as BookingStatus[]
+  ).includes(bookingStatus);
+
+  if (cantManageAssetsAsBaseOrSelfService || isNotAllowedStatus) {
+    throw new ShelfError({
+      cause: null,
+      label: "Booking",
+      message: isNotAllowedStatus
+        ? "Changing of assets is not allowed for current status of booking."
+        : "You are unable to manage assets at this point because the booking is already reserved. Cancel this booking and create another one if you need to make changes.",
+      shouldBeCaptured: false,
+      additionalData: {
+        bookingStatus,
+        isSelfServiceOrBase,
+      },
+    });
+  }
+}
 
 export async function loader({ context, request, params }: LoaderFunctionArgs) {
   const authSession = context.getSession();
@@ -144,6 +284,7 @@ export async function loader({ context, request, params }: LoaderFunctionArgs) {
     } = await getPaginatedAndFilterableAssets({
       request,
       organizationId,
+      userId,
       extraInclude: {
         location: LOCATION_WITH_HIERARCHY,
       },
@@ -160,40 +301,86 @@ export async function loader({ context, request, params }: LoaderFunctionArgs) {
       userOrganizations,
       request,
     });
+    const bookingTemplates = await listBookingTemplatesForUser({
+      organizationId,
+      ownerId: userId,
+    });
 
-    /** Self service can only manage assets for bookings that are DRAFT */
-    const cantManageAssetsAsBaseOrSelfService =
-      isSelfServiceOrBase && booking.status !== BookingStatus.DRAFT;
-
-    /** Changing assets is not allowed at this stage */
-    const isNotAllowedStatus = (
-      [
-        BookingStatus.CANCELLED,
-        BookingStatus.ARCHIVED,
-        BookingStatus.COMPLETE,
-      ] as BookingStatus[]
-    ).includes(booking.status);
-
-    if (cantManageAssetsAsBaseOrSelfService || isNotAllowedStatus) {
-      throw new ShelfError({
-        cause: null,
-        label: "Booking",
-        message: isNotAllowedStatus
-          ? "Changing of assets is not allowed for current status of booking."
-          : isSelfServiceOrBase
-          ? "You are unable to add assets at this point because the booking is already reserved. Cancel this booking and create another one if you need to make changes."
-          : "Changing of assets is not allowed for current status of booking.",
-        shouldBeCaptured: false,
-        additionalData: {
-          booking,
-          userId,
-          organizationId,
-          isSelfServiceOrBase,
-        },
-      });
-    }
+    assertBookingAssetsManageable({
+      bookingStatus: booking.status,
+      isSelfServiceOrBase,
+    });
 
     const bookingKitIds = getKitIdsByAssets(booking.assets);
+    const assetIds = assets.map((asset) => asset.id);
+    const favoriteAssetIds = assetIds.length
+      ? (
+          await db.assetFavorite.findMany({
+            where: {
+              organizationId,
+              ownerId: userId,
+              assetId: { in: assetIds },
+            },
+            select: { assetId: true },
+          })
+        ).map((favorite) => favorite.assetId)
+      : [];
+
+    const lastUsersByAssetId = assetIds.length
+      ? buildLastUserMap(
+          await db.booking.findMany({
+            where: {
+              organizationId,
+              status: {
+                in: [
+                  BookingStatus.RESERVED,
+                  BookingStatus.ONGOING,
+                  BookingStatus.OVERDUE,
+                  BookingStatus.COMPLETE,
+                ],
+              },
+              assets: {
+                some: {
+                  id: { in: assetIds },
+                },
+              },
+              OR: [
+                { custodianUserId: { not: null } },
+                { custodianTeamMemberId: { not: null } },
+              ],
+            },
+            orderBy: [{ to: "desc" }, { updatedAt: "desc" }],
+            select: {
+              id: true,
+              assets: {
+                where: {
+                  id: { in: assetIds },
+                },
+                select: { id: true },
+              },
+              custodianUser: {
+                select: {
+                  displayName: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+              custodianTeamMember: {
+                select: {
+                  name: true,
+                  user: {
+                    select: {
+                      displayName: true,
+                      firstName: true,
+                      lastName: true,
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      : {};
 
     return payload({
       header: {
@@ -208,6 +395,7 @@ export async function loader({ context, request, params }: LoaderFunctionArgs) {
       showSidebar: true,
       noScroll: true,
       booking,
+      bookingTemplates,
       items: assets,
       categories,
       tags,
@@ -222,6 +410,8 @@ export async function loader({ context, request, params }: LoaderFunctionArgs) {
       locations,
       totalLocations,
       bookingKitIds,
+      favoriteAssetIds,
+      lastUsersByAssetId,
     });
   } catch (cause) {
     const reason = makeShelfError(cause, { userId, id });
@@ -244,8 +434,148 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
       action: PermissionAction.update,
     });
 
+    const formData = await request.formData();
+    const intent = formData.get("intent");
+
+    const booking = await db.booking
+      .findUniqueOrThrow({
+        where: { id: bookingId, organizationId },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          /** We need to get the original assets that were part of the booking before the update so we can compare */
+          assets: {
+            where: { kitId: null },
+            select: {
+              id: true,
+              title: true,
+              sequentialId: true,
+            },
+          },
+        },
+      })
+      .catch((cause) => {
+        throw new ShelfError({
+          cause,
+          label: "Booking",
+          message:
+            "Booking not found. Are you sure it exists in the current workspace.",
+        });
+      });
+
+    assertBookingAssetsManageable({
+      bookingStatus: booking.status,
+      isSelfServiceOrBase,
+    });
+
+    if (intent === "toggle-favorite") {
+      const assetId = z.string().parse(formData.get("assetId"));
+      const isFavorite =
+        z.enum(["true", "false"]).parse(formData.get("isFavorite")) === "true";
+
+      const asset = await db.asset.findFirst({
+        where: {
+          id: assetId,
+          organizationId,
+        },
+        select: { id: true },
+      });
+
+      if (!asset) {
+        throw new ShelfError({
+          cause: null,
+          label: "Assets",
+          message: "Asset not found in the current workspace.",
+          shouldBeCaptured: false,
+          additionalData: { assetId, organizationId, userId },
+        });
+      }
+
+      if (isFavorite) {
+        await db.assetFavorite.upsert({
+          where: {
+            organizationId_ownerId_assetId: {
+              organizationId,
+              ownerId: userId,
+              assetId,
+            },
+          },
+          update: {},
+          create: {
+            organizationId,
+            ownerId: userId,
+            assetId,
+          },
+        });
+      } else {
+        await db.assetFavorite.deleteMany({
+          where: {
+            organizationId,
+            ownerId: userId,
+            assetId,
+          },
+        });
+      }
+
+      return payload({
+        intent: "toggle-favorite",
+        assetId,
+        isFavorite,
+      });
+    }
+
+    if (intent === "apply-template") {
+      const { templateId } = parseData(
+        formData,
+        ApplyBookingTemplateFormSchema,
+        {
+          additionalData: { userId, bookingId },
+        }
+      );
+
+      const templateApplication = await applyBookingTemplate({
+        templateId,
+        organizationId,
+        ownerId: userId,
+        bookingId,
+        bookingStatus: booking.status,
+      });
+
+      return payload({
+        intent: "apply-template",
+        templateApplication,
+      });
+    }
+
+    if (intent === "create-template") {
+      const { name } = parseData(formData, CreateBookingTemplateFormSchema, {
+        additionalData: { userId, bookingId },
+      });
+
+      const template = await createBookingTemplate({
+        organizationId,
+        ownerId: userId,
+        name,
+        items: booking.assets.map((asset) => ({
+          assetId: asset.id,
+          title: asset.title,
+          sequentialId: asset.sequentialId,
+        })),
+      });
+
+      return payload({
+        intent: "create-template",
+        createdTemplate: {
+          id: template.id,
+          name: template.name,
+          itemCount: template.items.length,
+        },
+      });
+    }
+
     let { assetIds, removedAssetIds, redirectTo } = parseData(
-      await request.formData(),
+      formData,
       z.object({
         assetIds: z.array(z.string()).optional().default([]),
         removedAssetIds: z.array(z.string()).optional().default([]),
@@ -266,10 +596,13 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
       const assetsWhere = getAssetsWhereInput({
         organizationId,
         currentSearchParams: searchParams.toString(),
+        userId,
       });
 
       const allAssets = await db.asset.findMany({
-        where: assetsWhere,
+        where: {
+          AND: [assetsWhere, { id: { notIn: removedAssetIds } }],
+        },
         select: { id: true },
       });
       const bookingAssets = await db.asset.findMany({
@@ -280,17 +613,21 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
         select: { id: true },
       });
 
+      const removedAssetIdSet = new Set(removedAssetIds);
+
       /**
        * New assets that needs to be added are
        * - Previously added assets
        * - All assets with applied filters
+       *
+       * Keep removed IDs excluded even if a query returns them unexpectedly.
        */
       assetIds = [
         ...new Set([
           ...allAssets.map((asset) => asset.id),
           ...bookingAssets.map((asset) => asset.id),
         ]),
-      ];
+      ].filter((assetId) => !removedAssetIdSet.has(assetId));
     }
 
     const user = await getUserByID(authSession.userId, {
@@ -302,48 +639,6 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
       } satisfies Prisma.UserSelect,
     });
 
-    const booking = await db.booking
-      .findUniqueOrThrow({
-        where: { id: bookingId, organizationId },
-        select: {
-          id: true,
-          status: true,
-          /** We need to get the original assets that were part of the booking before the update so we can compare */
-          assets: {
-            select: { id: true },
-          },
-        },
-      })
-      .catch((cause) => {
-        throw new ShelfError({
-          cause,
-          label: "Booking",
-          message:
-            "Booking not found. Are you sure it exists in the current workspace.",
-        });
-      });
-
-    /** Self service can only manage assets for bookings that are DRAFT */
-    const cantManageAssetsAsBase =
-      isSelfServiceOrBase && booking.status !== BookingStatus.DRAFT;
-
-    /** Changing assets is not allowed at this stage */
-    const notAllowedStatus: BookingStatus[] = [
-      BookingStatus.CANCELLED,
-      BookingStatus.ARCHIVED,
-      BookingStatus.COMPLETE,
-    ];
-
-    if (cantManageAssetsAsBase || notAllowedStatus.includes(booking.status)) {
-      throw new ShelfError({
-        cause: null,
-        label: "Booking",
-        message: isSelfServiceOrBase
-          ? "You are unable to manage assets at this point because the booking is already reserved. Cancel this booking and create another one if you need to make changes."
-          : "Changing of assets is not allowed for current status of booking.",
-        shouldBeCaptured: false,
-      });
-    }
     // Get existing asset IDs from the booking
     const existingAssetIds = booking.assets.map((asset) => asset.id);
 
@@ -469,14 +764,51 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
 
 export default function AddAssetsToNewBooking() {
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [templateName, setTemplateName] = useState("");
+  const [templateApplySummary, setTemplateApplySummary] = useState<null | {
+    templateName: string;
+    availableAssets: Array<{
+      id: string;
+      title: string;
+      sequentialId: string | null;
+      kitId: null;
+    }>;
+    unavailableAssets: Array<{
+      assetId: string;
+      title: string;
+      sequentialId: string | null;
+      reason: string;
+    }>;
+    missingAssets: Array<{
+      assetId: string;
+      title: string;
+      sequentialId: string | null;
+    }>;
+  }>(null);
+  const [bookingTemplates, setBookingTemplates] = useState(
+    () =>
+      [] as Array<{
+        id: string;
+        name: string;
+        items: Array<{ assetId: string }>;
+      }>
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
-  const { booking, bookingKitIds, items, totalItems } =
-    useLoaderData<typeof loader>();
+  const {
+    booking,
+    bookingKitIds,
+    bookingTemplates: loaderBookingTemplates,
+    items,
+    totalItems,
+  } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const navigation = useNavigation();
   const isSearching = isFormProcessing(navigation.state);
   const submit = useSubmit();
+  const applyTemplateFetcher = useFetcher<typeof action>();
+  const createTemplateFetcher = useFetcher<typeof action>();
 
   const selectedBulkItems = useAtomValue(selectedBulkItemsAtom);
   const updateItem = useSetAtom(setSelectedBulkItemAtom);
@@ -485,6 +817,10 @@ export default function AddAssetsToNewBooking() {
   const hasSelectedAllItems = isSelectingAllItems(selectedBulkItems);
   const disabledBulkItems = useAtomValue(disabledBulkItemsAtom);
   const setDisabledBulkItems = useSetAtom(setDisabledBulkItemsAtom);
+
+  useEffect(() => {
+    setBookingTemplates(loaderBookingTemplates);
+  }, [loaderBookingTemplates]);
 
   /** Assets with kits has to be handled from manage-kits */
   const bookingAssets = useMemo(
@@ -547,6 +883,61 @@ export default function AddAssetsToNewBooking() {
     setDisabledBulkItems(_disabledBulkItems);
   }, [items, setDisabledBulkItems]);
 
+  useEffect(() => {
+    const response = applyTemplateFetcher.data;
+
+    if (
+      !response ||
+      response.error ||
+      response.intent !== "apply-template" ||
+      !("templateApplication" in response)
+    ) {
+      return;
+    }
+
+    const { nextSelectedBulkItems, templateApplySummary } =
+      applyTemplateAssetsToSelection(
+        selectedBulkItems,
+        response.templateApplication
+      );
+
+    setSelectedBulkItems(nextSelectedBulkItems);
+    setTemplateApplySummary(templateApplySummary);
+  }, [applyTemplateFetcher.data, selectedBulkItems, setSelectedBulkItems]);
+
+  useEffect(() => {
+    const response = createTemplateFetcher.data;
+
+    if (
+      !response ||
+      response.error ||
+      response.intent !== "create-template" ||
+      !("createdTemplate" in response)
+    ) {
+      return;
+    }
+
+    const createdTemplate = response.createdTemplate;
+    setTemplateName("");
+    setBookingTemplates((current) => {
+      const next = current.filter(
+        (template) => template.id !== createdTemplate.id
+      );
+      next.unshift({
+        id: createdTemplate.id,
+        name: createdTemplate.name,
+        items: Array.from(
+          { length: createdTemplate.itemCount },
+          (_, index) => ({
+            assetId: `placeholder-${index}`,
+          })
+        ),
+      });
+      return next;
+    });
+    setSelectedTemplateId(createdTemplate.id);
+  }, [createTemplateFetcher.data]);
+
   return (
     <Tabs
       className="flex h-full max-h-full flex-col"
@@ -600,10 +991,156 @@ export default function AddAssetsToNewBooking() {
         </TabsList>
       </div>
 
+      <div className="border-b px-6 py-4">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+          <applyTemplateFetcher.Form
+            method="post"
+            className="flex flex-col gap-2 rounded border border-gray-200 p-3"
+          >
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                Apply template
+              </p>
+              <p className="text-xs text-gray-500">
+                Add available assets from one of your saved checkout templates.
+              </p>
+            </div>
+            <input type="hidden" name="intent" value="apply-template" />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <select
+                className="h-10 flex-1 rounded-[4px] border border-gray-300 px-3 text-sm text-gray-900"
+                name="templateId"
+                value={selectedTemplateId}
+                onChange={(event) => setSelectedTemplateId(event.target.value)}
+              >
+                <option value="">Select a template</option>
+                {bookingTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} ({template.items.length})
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="submit"
+                disabled={
+                  !selectedTemplateId || applyTemplateFetcher.state !== "idle"
+                }
+              >
+                Apply
+              </Button>
+            </div>
+            {applyTemplateFetcher.data?.error ? (
+              <p className="text-sm text-error-500">
+                {applyTemplateFetcher.data.error.message}
+              </p>
+            ) : null}
+          </applyTemplateFetcher.Form>
+
+          <createTemplateFetcher.Form
+            method="post"
+            className="flex flex-col gap-2 rounded border border-gray-200 p-3"
+          >
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                Save current assets as template
+              </p>
+              <p className="text-xs text-gray-500">
+                Uses the booking's currently saved non-kit assets. Unsaved
+                changes are not included in v1.
+              </p>
+            </div>
+            <input type="hidden" name="intent" value="create-template" />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <Input
+                label="Template name"
+                name="name"
+                value={templateName}
+                onChange={(event) => setTemplateName(event.target.value)}
+                placeholder="Studio checkout"
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                disabled={
+                  bookingAssets.length === 0 ||
+                  !templateName.trim() ||
+                  createTemplateFetcher.state !== "idle"
+                }
+                className="sm:mt-6"
+              >
+                Save template
+              </Button>
+            </div>
+            {createTemplateFetcher.data?.error ? (
+              <p className="text-sm text-error-500">
+                {createTemplateFetcher.data.error.message}
+              </p>
+            ) : createTemplateFetcher.data?.intent === "create-template" ? (
+              <p className="text-sm text-success-700">
+                Saved to your templates.
+              </p>
+            ) : null}
+          </createTemplateFetcher.Form>
+        </div>
+
+        {templateApplySummary ? (
+          <div className="mt-4 rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+            <p className="font-medium text-gray-900">
+              Applied {templateApplySummary.templateName}
+            </p>
+            <p className="mt-1 text-gray-600">
+              Added {templateApplySummary.availableAssets.length} available
+              asset
+              {templateApplySummary.availableAssets.length === 1
+                ? ""
+                : "s"}.{" "}
+              {templateApplySummary.unavailableAssets.length +
+                templateApplySummary.missingAssets.length >
+              0
+                ? "Unavailable or deleted items are listed below so the user can swap manually."
+                : "Everything in the template is ready to confirm."}
+            </p>
+            {templateApplySummary.unavailableAssets.length > 0 ? (
+              <div className="mt-3">
+                <p className="font-medium text-gray-900">Unavailable</p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-gray-600">
+                  {templateApplySummary.unavailableAssets.map((asset) => (
+                    <li key={asset.assetId}>
+                      {asset.title}
+                      {asset.sequentialId
+                        ? ` (${asset.sequentialId})`
+                        : ""}, {asset.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {templateApplySummary.missingAssets.length > 0 ? (
+              <div className="mt-3">
+                <p className="font-medium text-gray-900">Missing or deleted</p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-gray-600">
+                  {templateApplySummary.missingAssets.map((asset) => (
+                    <li key={asset.assetId}>
+                      {asset.title}
+                      {asset.sequentialId ? ` (${asset.sequentialId})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
       <Filters
         slots={{
           "left-of-search": <StatusFilter statusItems={AssetStatus} />,
-          "right-of-search": <AvailabilitySelect />,
+          "right-of-search": (
+            <div className="flex flex-wrap items-center gap-2">
+              <FavoritesOnlyFilter />
+              <AvailabilitySelect />
+            </div>
+          ),
         }}
         className="justify-between !border-t-0 border-b px-6 md:flex"
       />
@@ -683,6 +1220,7 @@ export default function AddAssetsToNewBooking() {
               <Th>Category</Th>
               <Th>Tags</Th>
               <Th>Location</Th>
+              <Th>Last user</Th>
             </>
           }
         />
@@ -750,6 +1288,31 @@ export default function AddAssetsToNewBooking() {
   );
 }
 
+function FavoritesOnlyFilter() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const favoritesOnly = searchParams.get("favoritesOnly") === "true";
+
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      className={
+        favoritesOnly
+          ? "border-amber-300 bg-amber-50 text-amber-700"
+          : undefined
+      }
+      onClick={() => {
+        setSearchParams((prev) => {
+          prev.set("favoritesOnly", favoritesOnly ? "false" : "true");
+          return prev;
+        });
+      }}
+    >
+      Favorites only
+    </Button>
+  );
+}
+
 const RowComponent = ({
   item,
 }: {
@@ -758,10 +1321,20 @@ const RowComponent = ({
   };
 }) => {
   const selectedBulkItems = useAtomValue(selectedBulkItemsAtom);
+  const { favoriteAssetIds, lastUsersByAssetId } =
+    useLoaderData<typeof loader>();
+  const toggleFavoriteFetcher = useFetcher<typeof action>();
+  const lastUser = lastUsersByAssetId[item.id];
   const checked = selectedBulkItems.some((asset) => asset.id === item.id);
   const { category, tags, location } = item;
   const isPartOfKit = !!item.kitId;
   const isAddedThroughKit = isPartOfKit && checked;
+  const isFavorite = favoriteAssetIds.includes(item.id);
+  const pendingFavorite =
+    toggleFavoriteFetcher.formData?.get("assetId") === item.id
+      ? toggleFavoriteFetcher.formData?.get("isFavorite") === "true"
+      : undefined;
+  const favoriteState = pendingFavorite ?? isFavorite;
 
   return (
     <>
@@ -769,6 +1342,36 @@ const RowComponent = ({
       <Td className="w-full min-w-[330px] p-0 md:p-0">
         <div className="flex justify-between gap-3 p-4 md:px-6">
           <div className="flex items-center gap-3">
+            <toggleFavoriteFetcher.Form
+              method="post"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <input type="hidden" name="intent" value="toggle-favorite" />
+              <input type="hidden" name="assetId" value={item.id} />
+              <input
+                type="hidden"
+                name="isFavorite"
+                value={favoriteState ? "false" : "true"}
+              />
+              <button
+                type="submit"
+                className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label={
+                  favoriteState
+                    ? `Remove ${item.title} from favorites`
+                    : `Add ${item.title} to favorites`
+                }
+                disabled={toggleFavoriteFetcher.state !== "idle"}
+              >
+                <Star
+                  className={
+                    favoriteState
+                      ? "size-4 fill-amber-400 text-amber-400"
+                      : "size-4 text-gray-400"
+                  }
+                />
+              </button>
+            </toggleFavoriteFetcher.Form>
             <div className="flex size-14 shrink-0 items-center justify-center">
               <AssetImage
                 asset={{
@@ -831,6 +1434,10 @@ const RowComponent = ({
             }}
           />
         ) : null}
+      </Td>
+
+      <Td>
+        <span className="text-sm text-gray-600">{lastUser?.name ?? "—"}</span>
       </Td>
     </>
   );

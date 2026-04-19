@@ -25,7 +25,7 @@ export default function SuccessfulSubscriptionModal() {
     <>
       <AnimatePresence>
         {success ? (
-          <div className="dialog-backdrop !bg-[#364054]/70">
+          <div className="dialog-backdrop !bg-gray-900/70">
             <dialog
               className="dialog m-auto h-auto w-[90%] sm:w-[400px]"
               open={true}

@@ -714,8 +714,25 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
     // Form data is already extracted above and will be reused
     const basicBookingInfo = await db.booking.findUniqueOrThrow({
       where: { id },
-      select: { id: true, status: true, from: true, to: true },
+      select: {
+        id: true,
+        status: true,
+        from: true,
+        to: true,
+        creatorId: true,
+        custodianUserId: true,
+      },
     });
+
+    if (isSelfServiceOrBase) {
+      validateBookingOwnership({
+        booking: basicBookingInfo,
+        userId,
+        role,
+        action: intent,
+      });
+    }
+
     const workingHours = await getWorkingHoursForOrganization(organizationId);
     const bookingSettings =
       await getBookingSettingsForOrganization(organizationId);

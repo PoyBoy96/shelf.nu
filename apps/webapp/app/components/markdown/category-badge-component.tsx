@@ -1,4 +1,7 @@
-import { CategoryBadge } from "~/components/assets/category-badge";
+import {
+  CategoryBadge,
+  UNCATEGORIZED_BADGE_COLOR,
+} from "~/components/assets/category-badge";
 
 type Props = {
   name?: string;
@@ -11,7 +14,7 @@ export function CategoryBadgeComponent({ name, color }: Props) {
       category={{
         id: "__note-category__",
         name: name ?? "Uncategorized",
-        color: color ?? "#575757",
+        color: color ?? UNCATEGORIZED_BADGE_COLOR,
       }}
       className="inline-flex"
     />
