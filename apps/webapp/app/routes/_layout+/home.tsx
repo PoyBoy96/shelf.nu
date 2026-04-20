@@ -10,6 +10,7 @@ import Header from "~/components/layout/header";
 import type { HeaderData } from "~/components/layout/header/types";
 import { db } from "~/database/db.server";
 import { getUpcomingRemindersForHomePage } from "~/modules/asset-reminder/service.server";
+import { BOOKING_CUSTODIAN_USER_SELECT } from "~/modules/booking/constants";
 import { getBookings } from "~/modules/booking/service.server";
 
 import calendarStyles from "~/styles/layout/calendar.css?url";
@@ -31,6 +32,56 @@ import {
 } from "~/utils/permissions/permission.data";
 import { requirePermission } from "~/utils/roles.server";
 import { resolveUserDisplayName } from "~/utils/user";
+
+const isMissingUserThemeColumnError = (cause: unknown) => {
+  const seen = new Set<object>();
+  let current: unknown = cause;
+
+  while (typeof current === "object" && current !== null) {
+    if (seen.has(current)) {
+      break;
+    }
+    seen.add(current);
+
+    if (
+      "code" in current &&
+      current.code === "P2022" &&
+      "meta" in current &&
+      JSON.stringify(current.meta).includes("User.theme")
+    ) {
+      return true;
+    }
+
+    if (
+      "message" in current &&
+      typeof current.message === "string" &&
+      current.message.includes("User.theme")
+    ) {
+      return true;
+    }
+
+    current = "cause" in current ? current.cause : null;
+  }
+
+  return typeof cause === "string" && cause.includes("User.theme");
+};
+
+async function getHomeBookingsFallback(
+  args: Parameters<typeof getBookings>[0]
+): Promise<Awaited<ReturnType<typeof getBookings>>> {
+  try {
+    return await getBookings(args);
+  } catch (cause) {
+    if (!isMissingUserThemeColumnError(cause)) {
+      throw cause;
+    }
+
+    return {
+      bookings: [],
+      bookingCount: 0,
+    };
+  }
+}
 
 export async function loader({ context, request }: LoaderFunctionArgs) {
   const authSession = context.getSession();
@@ -108,7 +159,7 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
         where: { organizationId, createdAt: { lt: twelveMonthsAgo } },
       }),
 
-      getBookings({
+      getHomeBookingsFallback({
         organizationId,
         userId,
         page: 1,
@@ -118,12 +169,14 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
         bookingTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         extraInclude: {
           custodianTeamMember: true,
-          custodianUser: true,
+          custodianUser: {
+            select: BOOKING_CUSTODIAN_USER_SELECT,
+          },
           _count: { select: { assets: true } },
         },
       }),
 
-      getBookings({
+      getHomeBookingsFallback({
         organizationId,
         userId,
         page: 1,
@@ -131,12 +184,14 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
         statuses: ["OVERDUE"],
         extraInclude: {
           custodianTeamMember: true,
-          custodianUser: true,
+          custodianUser: {
+            select: BOOKING_CUSTODIAN_USER_SELECT,
+          },
           _count: { select: { assets: true } },
         },
       }),
 
-      getBookings({
+      getHomeBookingsFallback({
         organizationId,
         userId,
         page: 1,
@@ -144,12 +199,14 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
         statuses: ["ONGOING"],
         extraInclude: {
           custodianTeamMember: true,
-          custodianUser: true,
+          custodianUser: {
+            select: BOOKING_CUSTODIAN_USER_SELECT,
+          },
           _count: { select: { assets: true } },
         },
       }),
 
-      getBookings({
+      getHomeBookingsFallback({
         organizationId,
         userId,
         page: 1,
@@ -159,7 +216,9 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
         takeAll: true,
         extraInclude: {
           custodianTeamMember: true,
-          custodianUser: true,
+          custodianUser: {
+            select: BOOKING_CUSTODIAN_USER_SELECT,
+          },
         },
       }),
 

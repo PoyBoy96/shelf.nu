@@ -49,7 +49,7 @@ model User {
   skipSubscriptionCheck  Boolean @default(false) // Set to true if the user has opted out of subscription checks
   hasUnpaidInvoice       Boolean @default(false) // Set via Stripe webhooks when invoice payment fails
   warnForNoPaymentMethod Boolean @default(false) // Set when subscription is transferred to a user without a payment method
-  theme                  UserTheme @default(original)
+  theme                  UserTheme @default(dark)
 
   // Last selected organization for cross-device workspace persistence
   lastSelectedOrganization   Organization? @relation("lastSelectedOrg", fields: [lastSelectedOrganizationId], references: [id], onDelete: SetNull)

@@ -1,10 +1,21 @@
 import type { Prisma } from "@prisma/client";
 import { TAG_WITH_COLOR_SELECT } from "../tag/constants";
 
+export const BOOKING_CUSTODIAN_USER_SELECT = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  displayName: true,
+  profilePicture: true,
+} satisfies Prisma.UserSelect;
+
 /** Includes needed for booking to have all data required for emails */
 export const BOOKING_INCLUDE_FOR_EMAIL = {
   custodianTeamMember: true,
-  custodianUser: true,
+  custodianUser: {
+    select: BOOKING_CUSTODIAN_USER_SELECT,
+  },
   // Include creator details so the notification resolver can add the
   // booking creator as a recipient when the org setting is enabled
   creator: {
@@ -73,7 +84,9 @@ export const BOOKING_EMAIL_ASSETS_DISPLAY_LIMIT = 10;
 /** Common relations to include in a booking */
 export const BOOKING_COMMON_INCLUDE = {
   custodianTeamMember: true,
-  custodianUser: true,
+  custodianUser: {
+    select: BOOKING_CUSTODIAN_USER_SELECT,
+  },
   tags: TAG_WITH_COLOR_SELECT,
 } as Prisma.BookingInclude;
 

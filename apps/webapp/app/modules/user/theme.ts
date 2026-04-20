@@ -2,7 +2,7 @@ export const USER_THEMES = ["original", "dark", "light"] as const;
 
 export type UserTheme = (typeof USER_THEMES)[number];
 
-export const DEFAULT_USER_THEME: UserTheme = "original";
+export const DEFAULT_USER_THEME: UserTheme = "dark";
 
 export const USER_THEME_LABELS: Record<UserTheme, string> = {
   original: "Original",

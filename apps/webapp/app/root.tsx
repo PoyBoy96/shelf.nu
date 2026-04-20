@@ -69,15 +69,55 @@ export const meta: MetaFunction = () => [
   },
 ];
 
+const isMissingUserThemeColumnError = (cause: unknown) => {
+  const seen = new Set<object>();
+  let current: unknown = cause;
+
+  while (typeof current === "object" && current !== null) {
+    if (seen.has(current)) {
+      break;
+    }
+    seen.add(current);
+
+    if (
+      "code" in current &&
+      current.code === "P2022" &&
+      "meta" in current &&
+      JSON.stringify(current.meta).includes("User.theme")
+    ) {
+      return true;
+    }
+
+    if (
+      "message" in current &&
+      typeof current.message === "string" &&
+      current.message.includes("User.theme")
+    ) {
+      return true;
+    }
+
+    current = "cause" in current ? current.cause : null;
+  }
+
+  return typeof cause === "string" && cause.includes("User.theme");
+};
+
 export const loader = async ({ context, request }: LoaderFunctionArgs) => {
   let theme = DEFAULT_USER_THEME;
 
   if (context.isAuthenticated) {
     const { userId } = context.getSession();
-    const user = await getUserByID(userId, {
-      select: { theme: true } satisfies Prisma.UserSelect,
-    });
-    theme = getUserTheme(user.theme);
+
+    try {
+      const user = await getUserByID(userId, {
+        select: { theme: true } satisfies Prisma.UserSelect,
+      });
+      theme = getUserTheme(user.theme);
+    } catch (cause) {
+      if (!isMissingUserThemeColumnError(cause)) {
+        throw cause;
+      }
+    }
   }
 
   return payload({

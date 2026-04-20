@@ -8,18 +8,22 @@ type Props = SVGProps<SVGSVGElement> & {
   iconBgColor?: string;
 
   iconShelfsColor?: string;
+
+  variant?: "full" | "symbol";
 };
 
 const ShelfLogo = ({
   typeColor = "#070732",
   iconBgColor = "#ff7809",
   iconShelfsColor = "#fff",
+  variant = "full",
   ...rest
 }: Props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width={rest.width || 250.269}
+    width={rest.width || (variant === "symbol" ? 79.771 : 250.269)}
     height={rest.height || 79.771}
+    viewBox={variant === "symbol" ? "0 0 79.771 79.771" : "0 0 250.269 79.771"}
     preserveAspectRatio="xMidYMid meet"
     {...rest}
   >
