@@ -23,11 +23,11 @@
 }
 
 .fc-next-button {
-  @apply ml-0 rounded-tl-none rounded-bl-none border border-gray-400 bg-white text-gray-600 !important;
+  @apply ml-0 rounded-tl-none rounded-bl-none border border-gray-400 bg-white text-gray-700 !important;
 }
 
 .fc-today-button {
-  @apply ml-0 rounded-none border border-gray-400 bg-white text-black pt-[0.5em] border-x-0 !important;
+  @apply ml-0 rounded-none border border-gray-400 bg-white pt-[0.5em] text-gray-900 border-x-0 !important;
 }
 
 .fc-timegrid-event-harness > a {
@@ -39,7 +39,7 @@
   @apply bg-none border-none !important;
 }
 .fc-prev-button {
-  @apply ml-0 rounded-tr-none rounded-br-none border border-gray-400 bg-white text-gray-600 !important;
+  @apply ml-0 rounded-tr-none rounded-br-none border border-gray-400 bg-white text-gray-700 !important;
 }
 
 .fc-event-main {
@@ -68,12 +68,12 @@
   @apply shadow-tremor-input drop-shadow-md !important;
 }
 .fc-theme-standard .fc-scrollgrid {
-  @apply border border-[#EAECF0] border-t-0;
+  @apply border border-gray-200 border-t-0;
 }
 
 .fc-theme-standard td,
 .fc-theme-standard th {
-  @apply border border-[#EAECF0];
+  @apply border border-gray-200;
 }
 
 .fc-daygrid-day-frame {
