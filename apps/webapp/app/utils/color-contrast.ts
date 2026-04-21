@@ -139,3 +139,70 @@ export function darkenColor(hex: string, factor: number = 0.5): string {
     return hex;
   }
 }
+
+/**
+ * Lighten a hex color by moving each channel toward white.
+ */
+export function lightenColor(hex: string, amount: number = 0.35): string {
+  try {
+    const rgb = hexToRgb(hex);
+    const r = Math.round(rgb.r + (255 - rgb.r) * amount);
+    const g = Math.round(rgb.g + (255 - rgb.g) * amount);
+    const b = Math.round(rgb.b + (255 - rgb.b) * amount);
+    return `#${r.toString(16).padStart(2, "0")}${g
+      .toString(16)
+      .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+  } catch {
+    return hex;
+  }
+}
+
+const LIGHT_SURFACE = "#f8fbff";
+const DARK_SURFACE = "#0b1728";
+
+function pickBestContrastColor(
+  background: string,
+  candidates: string[]
+): string {
+  return candidates.reduce((best, current) =>
+    getContrastRatio(current, background) > getContrastRatio(best, background)
+      ? current
+      : best
+  );
+}
+
+/**
+ * Build theme-aware badge colors that keep user-selected accent colors readable
+ * on both light and dark surfaces.
+ */
+export function getThemeAwareBadgeColors(color: string): {
+  lightBg: string;
+  lightText: string;
+  darkBg: string;
+  darkText: string;
+} {
+  const lightBg = overlayColor(color, LIGHT_SURFACE, 0.18);
+  const darkBg = overlayColor(color, DARK_SURFACE, 0.28);
+
+  const lightTextCandidates = [
+    darkenColor(color, 0.45),
+    darkenColor(color, 0.35),
+    getAccessibleTextColor(lightBg),
+  ];
+  const darkTextCandidates = [
+    lightenColor(color, 0.3),
+    lightenColor(color, 0.5),
+    "#f8fafc",
+    getAccessibleTextColor(darkBg),
+  ];
+
+  const lightText = pickBestContrastColor(lightBg, lightTextCandidates);
+  const darkText = pickBestContrastColor(darkBg, darkTextCandidates);
+
+  return {
+    lightBg,
+    lightText,
+    darkBg,
+    darkText,
+  };
+}

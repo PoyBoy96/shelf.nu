@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { darkenColor } from "~/utils/color-contrast";
+import { darkenColor, getThemeAwareBadgeColors } from "~/utils/color-contrast";
 import { tw } from "~/utils/tw";
 
 export const Badge = ({
@@ -28,32 +28,36 @@ export const Badge = ({
   const finalTextColor = textColor || darkenColor(color, 0.5);
 
   // When textColor is provided, use the background color as-is (predefined colors)
-  // Otherwise, apply 30% opacity for user-generated colors
-  const finalBgColor = textColor ? color : `${color}33`;
+  // Otherwise, compute theme-aware colors for user-generated colors.
+  const themeAwareColors = textColor ? null : getThemeAwareBadgeColors(color);
+  const finalBgColor = textColor ? color : themeAwareColors?.lightBg;
 
   return (
     <span
       style={{
-        backgroundColor: !noBg ? finalBgColor : undefined,
-        color: finalTextColor,
-        // Only use mix-blend-mode for auto-generated colors (user categories)
-        // Predefined status colors should render as-is
-        ...(textColor ? {} : { mixBlendMode: "multiply" }),
+        ...(textColor || noBg
+          ? {
+              backgroundColor: !noBg ? finalBgColor : undefined,
+              color: finalTextColor,
+            }
+          : {}),
+        ...(textColor
+          ? {}
+          : {
+              ["--badge-bg-light" as string]: themeAwareColors?.lightBg,
+              ["--badge-text-light" as string]: themeAwareColors?.lightText,
+              ["--badge-bg-dark" as string]: themeAwareColors?.darkBg,
+              ["--badge-text-dark" as string]: themeAwareColors?.darkText,
+            }),
       }}
       className={tw(
         "inline-flex items-center rounded-2xl py-[2px] pl-[6px] text-[12px] font-medium",
+        !textColor && !noBg && "theme-accent-badge",
         withDot ? " gap-1 pr-2" : "px-2",
         className
       )}
     >
-      {withDot ? (
-        <div
-          style={{
-            backgroundColor: finalTextColor,
-          }}
-          className="size-1.5 rounded-full"
-        />
-      ) : null}
+      {withDot ? <div className="size-1.5 rounded-full bg-current" /> : null}
 
       <span>{children}</span>
     </span>

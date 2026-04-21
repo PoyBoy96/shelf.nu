@@ -127,6 +127,16 @@ body {
   @apply bg-white text-text-sm text-gray-900;
 }
 
+.theme-accent-badge {
+  background-color: var(--badge-bg-light);
+  color: var(--badge-text-light);
+}
+
+[data-theme="dark"] .theme-accent-badge {
+  background-color: var(--badge-bg-dark);
+  color: var(--badge-text-dark);
+}
+
 select,
 textarea,
 input[type="date"],

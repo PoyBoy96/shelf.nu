@@ -9,7 +9,7 @@
 
 .react-tags.is-disabled {
   opacity: 0.75;
-  background-color: #eaeef2;
+  @apply bg-gray-100;
   /* Prevent any clicking on the component */
   pointer-events: none;
   cursor: not-allowed;
@@ -99,7 +99,7 @@
 }
 
 .react-tags__combobox-input::placeholder {
-  color: #7c7d86;
+  color: rgb(var(--color-gray-500));
   opacity: 1;
 }
 
@@ -112,8 +112,8 @@
   right: -2px;
   max-height: 12.5rem;
   overflow-y: auto;
-  background: #ffffff;
-  border: 1px solid #afb8c1;
+  background: rgb(var(--color-white));
+  border: 1px solid rgb(var(--color-gray-300));
   border-radius: 4px;
   box-shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -4px,
@@ -148,5 +148,5 @@
 }
 
 .react-tags__listbox-option-highlight {
-  background-color: #ffff33;
+  @apply rounded bg-primary-100 text-gray-900;
 }
