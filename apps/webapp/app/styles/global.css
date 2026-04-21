@@ -127,6 +127,32 @@ body {
   @apply bg-white text-text-sm text-gray-900;
 }
 
+select,
+textarea,
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
+  @apply bg-white text-gray-900;
+  color-scheme: inherit;
+}
+
+select:disabled,
+textarea:disabled,
+input[type="date"]:disabled,
+input[type="datetime-local"]:disabled,
+input[type="time"]:disabled,
+input[type="month"]:disabled,
+input[type="week"]:disabled {
+  @apply bg-gray-50 text-gray-500;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  color-scheme: inherit;
+}
+
 h1,
 h2,
 h3,
