@@ -14,10 +14,12 @@ import PasswordInput from "~/components/forms/password-input";
 import { Button } from "~/components/shared/button";
 import { config } from "~/config/shelf.config";
 import { useSearchParams } from "~/hooks/search-params";
+import { AuthBotProtectionFields } from "~/modules/auth/components/auth-bot-protection-fields";
 import { ContinueWithEmailForm } from "~/modules/auth/components/continue-with-email-form";
 import { signUpWithEmailPass } from "~/modules/auth/service.server";
 import { findUserByEmail } from "~/modules/user/service.server";
 import { appendToMetaTitle } from "~/utils/append-to-meta-title";
+import { assertBotProtectedAuthForm } from "~/utils/auth-bot-protection.server";
 import {
   ShelfError,
   isZodValidationError,
@@ -94,11 +96,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
     switch (getActionMethod(request)) {
       case "POST": {
-        const { email, password } = parseData(
-          await request.formData(),
-          JoinFormSchema,
-          { shouldBeCaptured: false }
-        );
+        const formData = await request.formData();
+        assertBotProtectedAuthForm(formData);
+
+        const { email, password } = parseData(formData, JoinFormSchema, {
+          shouldBeCaptured: false,
+        });
         // Block signup if domain uses SSO
         await validateNonSSOSignup(email);
 
@@ -153,6 +156,7 @@ export default function Join() {
     <div className="flex min-h-full flex-col justify-center">
       <div className="mx-auto w-full max-w-md">
         <Form ref={zo.ref} method="post" className="space-y-6" replace>
+          <AuthBotProtectionFields />
           <div>
             <Input
               data-test-id="email"

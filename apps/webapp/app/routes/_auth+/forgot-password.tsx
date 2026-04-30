@@ -16,11 +16,17 @@ import { useSearchParams } from "~/hooks/search-params";
 import { useDisabled } from "~/hooks/use-disabled";
 import { getSupabaseAdmin } from "~/integrations/supabase/client";
 
+import { AuthBotProtectionFields } from "~/modules/auth/components/auth-bot-protection-fields";
 import {
   sendResetPasswordLink,
   updateAccountPassword,
 } from "~/modules/auth/service.server";
 import { appendToMetaTitle } from "~/utils/append-to-meta-title";
+import {
+  assertBotProtectedAuthForm,
+  reserveEmailActionCooldown,
+  rollbackEmailActionCooldown,
+} from "~/utils/auth-bot-protection.server";
 import { makeShelfError, ShelfError } from "~/utils/error";
 import {
   payload,
@@ -90,11 +96,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
     switch (intent) {
       case "request-otp": {
-        const { email } = parseData(
-          await request.formData(),
-          ForgotPasswordSchema,
-          { shouldBeCaptured: false }
-        );
+        const formData = await request.formData();
+        assertBotProtectedAuthForm(formData);
+
+        const { email } = parseData(formData, ForgotPasswordSchema, {
+          shouldBeCaptured: false,
+        });
 
         /** We are going to get the user to make sure it exists and is confirmed
          * this will not allow the user to use the forgot password before they have confirmed their email
@@ -129,7 +136,23 @@ export async function action({ request, context }: ActionFunctionArgs) {
           });
         }
 
-        await sendResetPasswordLink(email);
+        const cooldownReservation = reserveEmailActionCooldown(
+          request,
+          email,
+          "forgot-password"
+        );
+
+        try {
+          await sendResetPasswordLink(email);
+        } catch (error) {
+          rollbackEmailActionCooldown(
+            request,
+            email,
+            "forgot-password",
+            cooldownReservation
+          );
+          throw error;
+        }
 
         return redirect("/forgot-password?email=" + email);
       }
@@ -198,6 +221,7 @@ export default function ForgotPassword() {
             </p>
             <Form ref={zo.ref} method="post" className="space-y-2" replace>
               <input type="hidden" name="intent" value="request-otp" />
+              <AuthBotProtectionFields />
               <div>
                 <Input
                   label="Email address"

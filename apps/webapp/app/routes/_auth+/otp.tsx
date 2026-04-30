@@ -24,6 +24,11 @@ import {
 import { createUser, findUserByEmail } from "~/modules/user/service.server";
 import { generateUniqueUsername } from "~/modules/user/utils.server";
 import { appendToMetaTitle } from "~/utils/append-to-meta-title";
+import {
+  AUTH_BOT_PROTECTION_HONEYPOT_FIELD,
+  AUTH_BOT_PROTECTION_RENDERED_AT_FIELD,
+  createAuthBotProtectionValues,
+} from "~/utils/auth-bot-protection";
 import { setCookie } from "~/utils/cookies.server";
 import { ShelfError, makeShelfError, notAllowedMethod } from "~/utils/error";
 import { isFormProcessing } from "~/utils/form";
@@ -181,6 +186,7 @@ export default function OtpPage() {
   );
   const fetcherDisabled = isFormProcessing(fetcher.state);
   const disabled = useDisabled();
+  const resendBotProtectionRef = useRef(createAuthBotProtectionValues());
 
   const email = searchParams.get("email") || "";
   const mode = searchParams.get("mode") as OtpVerifyMode;
@@ -190,6 +196,14 @@ export default function OtpPage() {
     const formData = new FormData();
     formData.append("email", email);
     formData.append("mode", mode);
+    formData.append(
+      AUTH_BOT_PROTECTION_HONEYPOT_FIELD,
+      resendBotProtectionRef.current[AUTH_BOT_PROTECTION_HONEYPOT_FIELD]
+    );
+    formData.append(
+      AUTH_BOT_PROTECTION_RENDERED_AT_FIELD,
+      resendBotProtectionRef.current[AUTH_BOT_PROTECTION_RENDERED_AT_FIELD]
+    );
 
     try {
       void fetcher.submit(formData, {

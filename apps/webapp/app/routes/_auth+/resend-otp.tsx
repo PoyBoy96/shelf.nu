@@ -6,6 +6,11 @@ import {
   resendVerificationEmail,
   sendOTP,
 } from "~/modules/auth/service.server";
+import {
+  assertBotProtectedAuthForm,
+  reserveEmailActionCooldown,
+  rollbackEmailActionCooldown,
+} from "~/utils/auth-bot-protection.server";
 import { makeShelfError, notAllowedMethod } from "~/utils/error";
 
 import {
@@ -22,8 +27,11 @@ export async function action({ request }: ActionFunctionArgs) {
 
     switch (method) {
       case "POST": {
+        const formData = await request.formData();
+        assertBotProtectedAuthForm(formData);
+
         const { email, mode } = parseData(
-          await request.formData(),
+          formData,
           z.object({
             email: z
               .string()
@@ -36,10 +44,26 @@ export async function action({ request }: ActionFunctionArgs) {
           { shouldBeCaptured: false }
         );
 
-        if (mode === "confirm_signup") {
-          await resendVerificationEmail(email);
-        } else {
-          await sendOTP(email, mode ?? "login");
+        const cooldownReservation = reserveEmailActionCooldown(
+          request,
+          email,
+          "resend-otp"
+        );
+
+        try {
+          if (mode === "confirm_signup") {
+            await resendVerificationEmail(email);
+          } else {
+            await sendOTP(email, mode ?? "login");
+          }
+        } catch (error) {
+          rollbackEmailActionCooldown(
+            request,
+            email,
+            "resend-otp",
+            cooldownReservation
+          );
+          throw error;
         }
 
         return payload({ success: true });

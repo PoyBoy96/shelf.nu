@@ -4,6 +4,7 @@ import { z } from "zod";
 import Input from "~/components/forms/input";
 import { Button } from "~/components/shared/button";
 
+import { AuthBotProtectionFields } from "~/modules/auth/components/auth-bot-protection-fields";
 import type { action } from "~/routes/_auth+/send-otp";
 import { validEmail } from "~/utils/misc";
 import { tw } from "~/utils/tw";
@@ -38,6 +39,7 @@ export function ContinueWithEmailForm({ mode }: { mode: "login" | "signup" }) {
   return (
     <sendOTP.Form method="post" action="/send-otp" ref={zo.ref}>
       <input type="hidden" name="mode" value={mode} />
+      <AuthBotProtectionFields />
       <Input
         label="Email"
         hideLabel={true}

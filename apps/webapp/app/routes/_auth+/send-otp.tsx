@@ -3,6 +3,11 @@ import { data, redirect } from "react-router";
 
 import { SendOtpSchema } from "~/modules/auth/components/continue-with-email-form";
 import { sendOTP } from "~/modules/auth/service.server";
+import {
+  assertBotProtectedAuthForm,
+  reserveEmailActionCooldown,
+  rollbackEmailActionCooldown,
+} from "~/utils/auth-bot-protection.server";
 import { makeShelfError, notAllowedMethod } from "~/utils/error";
 import { error, getActionMethod, parseData } from "~/utils/http.server";
 import { validateNonSSOSignup } from "~/utils/sso.server";
@@ -13,11 +18,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
     switch (method) {
       case "POST": {
-        const { email, mode } = parseData(
-          await request.formData(),
-          SendOtpSchema,
-          { shouldBeCaptured: false }
-        );
+        const formData = await request.formData();
+        assertBotProtectedAuthForm(formData);
+
+        const { email, mode } = parseData(formData, SendOtpSchema, {
+          shouldBeCaptured: false,
+        });
 
         // Only validate SSO for signup attempts
         if (mode === "signup" || mode === "confirm_signup") {
@@ -26,7 +32,23 @@ export async function action({ request }: ActionFunctionArgs) {
 
         const normalizedMode = mode ?? "login";
 
-        await sendOTP(email, normalizedMode);
+        const cooldownReservation = reserveEmailActionCooldown(
+          request,
+          email,
+          "send-otp"
+        );
+
+        try {
+          await sendOTP(email, normalizedMode);
+        } catch (error) {
+          rollbackEmailActionCooldown(
+            request,
+            email,
+            "send-otp",
+            cooldownReservation
+          );
+          throw error;
+        }
 
         return redirect(
           `/otp?email=${encodeURIComponent(email)}&mode=${normalizedMode}`
