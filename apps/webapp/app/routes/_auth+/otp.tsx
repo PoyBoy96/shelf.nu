@@ -12,7 +12,11 @@ import { ShelfOTP } from "~/components/forms/otp-input";
 import { Button } from "~/components/shared/button";
 import { useSearchParams } from "~/hooks/search-params";
 import { useDisabled } from "~/hooks/use-disabled";
-import { verifyOtpAndSignin } from "~/modules/auth/service.server";
+import type { OtpRequestMode } from "~/modules/auth/service.server";
+import {
+  OTP_REQUEST_MODES,
+  verifyOtpAndSignin,
+} from "~/modules/auth/service.server";
 import {
   getSelectedOrganization,
   setSelectedOrganizationIdCookie,
@@ -87,9 +91,29 @@ export async function action({ context, request }: ActionFunctionArgs) {
         });
 
         const authSession = await verifyOtpAndSignin(email, otp);
+        const rawMode = new URL(request.url).searchParams.get("mode");
+        const mode: OtpRequestMode = OTP_REQUEST_MODES.includes(
+          rawMode as OtpRequestMode
+        )
+          ? (rawMode as OtpRequestMode)
+          : "login";
+        const shouldProvisionUser =
+          mode === "signup" || mode === "confirm_signup";
         const userExists = Boolean(await findUserByEmail(email));
 
         if (!userExists) {
+          if (!shouldProvisionUser) {
+            throw new ShelfError({
+              cause: null,
+              message:
+                "No Shelf account found for this email. Sign up instead.",
+              additionalData: { email, mode },
+              label: "Auth",
+              shouldBeCaptured: false,
+              status: 404,
+            });
+          }
+
           try {
             const username = await generateUniqueUsername(authSession.email);
             await createUser({

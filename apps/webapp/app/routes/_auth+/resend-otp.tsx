@@ -1,7 +1,11 @@
 import type { ActionFunctionArgs } from "react-router";
 import { data } from "react-router";
 import { z } from "zod";
-import { sendOTP } from "~/modules/auth/service.server";
+import {
+  OTP_REQUEST_MODES,
+  resendVerificationEmail,
+  sendOTP,
+} from "~/modules/auth/service.server";
 import { makeShelfError, notAllowedMethod } from "~/utils/error";
 
 import {
@@ -18,7 +22,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     switch (method) {
       case "POST": {
-        const { email } = parseData(
+        const { email, mode } = parseData(
           await request.formData(),
           z.object({
             email: z
@@ -27,11 +31,17 @@ export async function action({ request }: ActionFunctionArgs) {
               .refine(validEmail, () => ({
                 message: "Please enter a valid email",
               })),
+            mode: z.enum(OTP_REQUEST_MODES).optional(),
           }),
           { shouldBeCaptured: false }
         );
 
-        await sendOTP(email);
+        if (mode === "confirm_signup") {
+          await resendVerificationEmail(email);
+        } else {
+          await sendOTP(email, mode ?? "login");
+        }
+
         return payload({ success: true });
       }
     }

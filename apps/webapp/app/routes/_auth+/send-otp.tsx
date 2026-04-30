@@ -24,9 +24,13 @@ export async function action({ request }: ActionFunctionArgs) {
           await validateNonSSOSignup(email);
         }
 
-        await sendOTP(email);
+        const normalizedMode = mode ?? "login";
 
-        return redirect(`/otp?email=${encodeURIComponent(email)}&mode=${mode}`);
+        await sendOTP(email, normalizedMode);
+
+        return redirect(
+          `/otp?email=${encodeURIComponent(email)}&mode=${normalizedMode}`
+        );
       }
     }
 

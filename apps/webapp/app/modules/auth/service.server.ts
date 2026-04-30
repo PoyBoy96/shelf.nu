@@ -16,6 +16,10 @@ import { mapAuthSession } from "./mappers.server";
 
 const label: ErrorLabel = "Auth";
 
+export const OTP_REQUEST_MODES = ["login", "signup", "confirm_signup"] as const;
+
+export type OtpRequestMode = (typeof OTP_REQUEST_MODES)[number];
+
 export async function createEmailAuthAccount(email: string, password: string) {
   try {
     const { data, error } = await getSupabaseAdmin().auth.admin.createUser({
@@ -267,14 +271,36 @@ async function validateNonSSOUser(email: string) {
   }
 }
 
-export async function sendOTP(email: string) {
+async function ensureOtpLoginUserExists(email: string) {
+  const user = await db.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true },
+  });
+
+  if (!user) {
+    throw new ShelfError({
+      cause: null,
+      message: "No Shelf account found for this email. Sign up instead.",
+      additionalData: { email },
+      label,
+      shouldBeCaptured: false,
+      status: 404,
+    });
+  }
+}
+
+export async function sendOTP(email: string, mode: OtpRequestMode = "login") {
   try {
+    if (mode === "login") {
+      await ensureOtpLoginUserExists(email);
+    }
+
     await validateNonSSOUser(email);
 
     const { error } = await getSupabaseAdmin().auth.signInWithOtp({
       email,
       options: {
-        shouldCreateUser: !config.disableSignup, // If signup is disabled, don't create a new user
+        shouldCreateUser: mode !== "login" && !config.disableSignup,
       },
     });
 
