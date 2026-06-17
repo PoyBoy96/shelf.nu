@@ -49,7 +49,7 @@ docker compose --env-file .env.docker down
 
 `docker-compose.yml` builds from `apps/webapp/Dockerfile.image` and starts the production server on port `3000`.
 
-The image does not run Prisma migrations automatically. Apply them separately before starting the container if your Supabase schema is not current yet.
+The image applies pending Prisma migrations before starting the server. If a migration fails, the container exits instead of booting against an out-of-date schema.
 
 > [!IMPORTANT] > `SMTP_FROM` must be a single quoted value, for example:
 > `SMTP_FROM="Team Shelf <hello@example.com>"`
