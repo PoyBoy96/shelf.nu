@@ -71,6 +71,11 @@ vitest.mock("~/database/db.server", () => ({
           : Promise.all(callbackOrArray)
       ),
     $executeRaw: vitest.fn().mockResolvedValue(0),
+    // why: deletion history records are written when bookings are deleted
+    deletedItemRecord: {
+      create: vitest.fn().mockResolvedValue({}),
+      createMany: vitest.fn().mockResolvedValue({ count: 0 }),
+    },
     booking: {
       create: vitest.fn().mockResolvedValue({}),
       update: vitest.fn().mockResolvedValue({}),
@@ -274,7 +279,16 @@ describe("createBooking", () => {
         assets: { connect: [{ id: "asset-1" }, { id: "asset-2" }] },
       },
       include: {
-        custodianUser: true,
+        custodianUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            profilePicture: true,
+            displayName: true,
+          },
+        },
         custodianTeamMember: true,
         organization: true,
         tags: {
@@ -320,7 +334,16 @@ describe("createBooking", () => {
         assets: { connect: [{ id: "asset-1" }, { id: "asset-2" }] },
       },
       include: {
-        custodianUser: true,
+        custodianUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            profilePicture: true,
+            displayName: true,
+          },
+        },
         custodianTeamMember: true,
         organization: true,
         tags: {

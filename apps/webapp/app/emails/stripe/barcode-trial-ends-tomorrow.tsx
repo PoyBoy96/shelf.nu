@@ -75,6 +75,7 @@ export const barcodeTrialEndsTomorrowEmailText = ({
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 
   if (hasPaymentMethod) {
@@ -119,6 +120,7 @@ function BarcodeTrialEndsTomorrowEmailTemplate({
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 
   return (

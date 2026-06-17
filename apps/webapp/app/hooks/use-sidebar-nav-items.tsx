@@ -7,6 +7,7 @@ import {
   CalendarRangeIcon,
   ChartLineIcon,
   ClipboardCheckIcon,
+  HistoryIcon,
   HomeIcon,
   MapPinIcon,
   MessageCircleIcon,
@@ -150,6 +151,13 @@ export function useSidebarNavItems() {
       title: "Audits",
       to: "/audits",
       Icon: ClipboardCheckIcon,
+    },
+    {
+      type: "child",
+      title: "History",
+      to: "/history",
+      Icon: HistoryIcon,
+      hidden: isBaseOrSelfService,
     },
     {
       type: "parent",

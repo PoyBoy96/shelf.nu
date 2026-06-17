@@ -140,12 +140,26 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
 
     switch (intent) {
       case "delete": {
-        const { mainImageUrl } = parseData(
+        const { mainImageUrl, deletionReason, deletionReasonNote } = parseData(
           formData,
-          z.object({ mainImageUrl: z.string().optional() })
+          z.object({
+            mainImageUrl: z.string().optional(),
+            /** Why the asset is deleted — recorded in the deletion history */
+            deletionReason: z.preprocess(
+              (value) => (value === "" || value == null ? undefined : value),
+              z.enum(["BROKEN", "MISSING", "REPLACED", "OTHER"]).optional()
+            ),
+            deletionReasonNote: z.string().max(500).optional(),
+          })
         );
 
-        await deleteAsset({ organizationId, id });
+        await deleteAsset({
+          organizationId,
+          id,
+          userId,
+          reason: deletionReason,
+          reasonNote: deletionReasonNote,
+        });
 
         if (mainImageUrl) {
           // as it is deletion operation giving hardcoded path(to make sure all the images were deleted)

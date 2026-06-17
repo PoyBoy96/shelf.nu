@@ -15,7 +15,6 @@ import {
 
 import chardet from "chardet";
 import { CsvError, parse } from "csv-parse";
-import { format } from "date-fns";
 import iconv from "iconv-lite";
 import { db } from "~/database/db.server";
 import {
@@ -557,6 +556,9 @@ export const formatValueForCsv = (value: any, isMarkdown = false): string => {
   return `"${stringValue}"`;
 };
 
+const formatDateOnlyUtc = (date: Date | string) =>
+  new Date(date).toISOString().split("T")[0];
+
 /**
  * Formats a custom field value specifically for CSV export
  */
@@ -584,7 +586,7 @@ const formatCustomFieldForCsv = (
     case CustomFieldType.DATE:
       if (!fieldValue.valueDate) return "";
       try {
-        return format(new Date(fieldValue.valueDate), "yyyy-MM-dd");
+        return formatDateOnlyUtc(fieldValue.valueDate);
       } catch {
         return String(fieldValue.raw);
       }

@@ -47,6 +47,8 @@ export enum PermissionEntity {
   userData = "user-data", // This is for the user to load their own data.
   update = "update",
   commandPaletteSearch = "command-palette-search",
+  /** History of deleted assets/kits/bookings (admin & owner only) */
+  deletedItemRecord = "deletedItemRecord",
 }
 
 //this will come from DB eventually
@@ -100,6 +102,7 @@ export const Role2PermissionMap: {
     ],
     [PermissionEntity.update]: [PermissionAction.read],
     [PermissionEntity.commandPaletteSearch]: [PermissionAction.read],
+    [PermissionEntity.deletedItemRecord]: [],
   },
   [OrganizationRoles.SELF_SERVICE]: {
     [PermissionEntity.asset]: [PermissionAction.read, PermissionAction.custody],
@@ -153,6 +156,7 @@ export const Role2PermissionMap: {
     ],
     [PermissionEntity.update]: [PermissionAction.read],
     [PermissionEntity.commandPaletteSearch]: [PermissionAction.read],
+    [PermissionEntity.deletedItemRecord]: [],
   },
   [OrganizationRoles.ADMIN]: {
     [PermissionEntity.asset]: [
@@ -291,6 +295,7 @@ export const Role2PermissionMap: {
     ],
     [PermissionEntity.update]: [PermissionAction.read],
     [PermissionEntity.commandPaletteSearch]: [PermissionAction.read],
+    [PermissionEntity.deletedItemRecord]: [PermissionAction.read],
   },
   [OrganizationRoles.OWNER]: {
     [PermissionEntity.asset]: [
@@ -431,5 +436,6 @@ export const Role2PermissionMap: {
     ],
     [PermissionEntity.update]: [PermissionAction.read],
     [PermissionEntity.commandPaletteSearch]: [PermissionAction.read],
+    [PermissionEntity.deletedItemRecord]: [PermissionAction.read],
   },
 };

@@ -80,6 +80,7 @@ export const trialEndsSoonEmailText = ({
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 
   if (hasPaymentMethod) {
@@ -126,12 +127,13 @@ function TrialEndsSoonEmailTemplate({
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 
   return (
     <Html>
       <Head>
-        <title>Your Shelf {planName} trial is ending soon</title>
+        <title>{`Your Shelf ${planName} trial is ending soon`}</title>
       </Head>
 
       <Container style={{ padding: "32px 16px", maxWidth: "100%" }}>

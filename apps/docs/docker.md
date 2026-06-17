@@ -34,7 +34,7 @@ SHELF_PORT=3001 docker compose --env-file .env.docker up -d --build
 $env:SHELF_PORT="3001"; docker compose --env-file .env.docker up -d --build
 ```
 
-3. Open http://localhost:3000 (or your `SHELF_PORT` value if overridden)
+3. Open `http://localhost:3000` (or your `SHELF_PORT` value if overridden)
 4. Check logs if needed:
 
 ```bash
@@ -51,8 +51,7 @@ docker compose --env-file .env.docker down
 
 The image does not run Prisma migrations automatically. Apply them separately before starting the container if your Supabase schema is not current yet.
 
-> [!IMPORTANT]
-> `SMTP_FROM` must be a single quoted value, for example:
+> [!IMPORTANT] > `SMTP_FROM` must be a single quoted value, for example:
 > `SMTP_FROM="Team Shelf <hello@example.com>"`
 > We pass `--env-file .env.docker` explicitly to avoid parsing issues with existing local `.env` files.
 

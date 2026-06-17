@@ -72,12 +72,8 @@ const Calendar: React.ForwardRefRenderFunction<HTMLElement, CalendarProps> = (
         ...classNames,
       }}
       components={{
-        Chevron: ({ orientation }) =>
-          orientation === "left" ? (
-            <ChevronLeftIcon className="size-4" />
-          ) : (
-            <ChevronRightIcon className="size-4" />
-          ),
+        IconLeft: () => <ChevronLeftIcon className="size-4" />,
+        IconRight: () => <ChevronRightIcon className="size-4" />,
       }}
       {...props}
     />

@@ -73,7 +73,7 @@ import { sendBookingUpdatedEmail } from "~/modules/booking/email-helpers";
 import {
   getBooking,
   getDetailedPartialCheckinData,
-  getKitIdsByAssets,
+  getFullyIncludedKitIds,
   removeAssets,
   updateBookingAssets,
 } from "~/modules/booking/service.server";
@@ -90,6 +90,7 @@ import { createNotes } from "~/modules/note/service.server";
 import { getUserByID } from "~/modules/user/service.server";
 import { appendToMetaTitle } from "~/utils/append-to-meta-title";
 import { isAssetPartiallyCheckedIn } from "~/utils/booking-assets";
+import { isBookingOwnedByUser } from "~/utils/bookings";
 import { getClientHint } from "~/utils/client-hints";
 import { makeShelfError, ShelfError } from "~/utils/error";
 import { isFormProcessing } from "~/utils/form";
@@ -217,12 +218,31 @@ export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
 function assertBookingAssetsManageable({
   bookingStatus,
   isSelfServiceOrBase,
+  booking,
+  userId,
 }: {
   bookingStatus: BookingStatus;
   isSelfServiceOrBase: boolean;
+  /** Creator/custodian info used for the booking-owner exception */
+  booking?: { creatorId?: string | null; custodianUserId?: string | null };
+  userId?: string;
 }) {
+  /**
+   * Base/self-service users who own the booking (creator or custodian) are
+   * allowed to keep managing assets while the booking is ONGOING/OVERDUE so
+   * they can add forgotten gear after the start time.
+   */
+  const isOwnActiveBooking =
+    !!booking &&
+    isBookingOwnedByUser(booking, userId) &&
+    (
+      [BookingStatus.ONGOING, BookingStatus.OVERDUE] as BookingStatus[]
+    ).includes(bookingStatus);
+
   const cantManageAssetsAsBaseOrSelfService =
-    isSelfServiceOrBase && bookingStatus !== BookingStatus.DRAFT;
+    isSelfServiceOrBase &&
+    bookingStatus !== BookingStatus.DRAFT &&
+    !isOwnActiveBooking;
 
   const isNotAllowedStatus = (
     [
@@ -309,9 +329,18 @@ export async function loader({ context, request, params }: LoaderFunctionArgs) {
     assertBookingAssetsManageable({
       bookingStatus: booking.status,
       isSelfServiceOrBase,
+      booking,
+      userId,
     });
 
-    const bookingKitIds = getKitIdsByAssets(booking.assets);
+    /**
+     * Only kits that are FULLY included in the booking are managed via the
+     * kits tab. Assets of partially pulled kits are managed individually.
+     */
+    const bookingKitIds = await getFullyIncludedKitIds({
+      assets: booking.assets,
+      organizationId,
+    });
     const assetIds = assets.map((asset) => asset.id);
     const favoriteAssetIds = assetIds.length
       ? (
@@ -444,6 +473,8 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
           id: true,
           name: true,
           status: true,
+          creatorId: true,
+          custodianUserId: true,
           /** We need to get the original assets that were part of the booking before the update so we can compare */
           assets: {
             where: { kitId: null },
@@ -467,6 +498,8 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
     assertBookingAssetsManageable({
       bookingStatus: booking.status,
       isSelfServiceOrBase,
+      booking,
+      userId,
     });
 
     if (intent === "toggle-favorite") {
@@ -651,14 +684,19 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
     const { partialCheckinDetails } =
       await getDetailedPartialCheckinData(bookingId);
 
-    // Query to get potentially checked out assets
-    const potentiallyCheckedOutAssets = await db.asset.findMany({
+    // Query assets that might block adding to an active booking:
+    // CHECKED_OUT (already out in another booking) or IN_CUSTODY (held by a team member)
+    const potentiallyUnavailableAssets = await db.asset.findMany({
       where: {
         id: { in: newAssetIds },
-        status: AssetStatus.CHECKED_OUT,
+        status: { in: [AssetStatus.CHECKED_OUT, AssetStatus.IN_CUSTODY] },
       },
       select: { id: true, title: true, status: true },
     });
+
+    const potentiallyCheckedOutAssets = potentiallyUnavailableAssets.filter(
+      (asset) => asset.status === AssetStatus.CHECKED_OUT
+    );
 
     // Filter out assets that are partially checked in within this booking context using centralized helper
     // These are effectively available for other bookings
@@ -680,6 +718,35 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
           .join(", ")}`,
         additionalData: {
           checkedOutAssets,
+          bookingId,
+          newAssetIds,
+        },
+        shouldBeCaptured: false,
+      });
+    }
+
+    /**
+     * Assets that are in custody can never be added to an active booking:
+     * adding them would immediately mark them as CHECKED_OUT while a team
+     * member still holds custody, corrupting the asset state.
+     */
+    const assetsInCustody = potentiallyUnavailableAssets.filter(
+      (asset) => asset.status === AssetStatus.IN_CUSTODY
+    );
+
+    if (
+      assetsInCustody.length > 0 &&
+      ["ONGOING", "OVERDUE"].includes(booking.status)
+    ) {
+      throw new ShelfError({
+        cause: null,
+        label: "Booking",
+        title: "Not allowed. Assets in custody",
+        message: `The following assets are in custody of a team member and cannot be added to an active booking: ${assetsInCustody
+          .map((asset) => asset.title)
+          .join(", ")}. Release custody first.`,
+        additionalData: {
+          assetsInCustody,
           bookingId,
           newAssetIds,
         },
@@ -822,10 +889,17 @@ export default function AddAssetsToNewBooking() {
     setBookingTemplates(loaderBookingTemplates);
   }, [loaderBookingTemplates]);
 
-  /** Assets with kits has to be handled from manage-kits */
+  /**
+   * Assets of FULLY included kits are handled from manage-kits.
+   * Assets that belong to a kit but were pulled individually (partial kit
+   * pulls) are managed right here, like any other individual asset.
+   */
   const bookingAssets = useMemo(
-    () => booking.assets.filter((asset) => !asset.kitId),
-    [booking.assets]
+    () =>
+      booking.assets.filter(
+        (asset) => !asset.kitId || !bookingKitIds.includes(asset.kitId)
+      ),
+    [booking.assets, bookingKitIds]
   );
 
   const removedAssets = useMemo(
@@ -869,11 +943,31 @@ export default function AddAssetsToNewBooking() {
   );
 
   /**
-   * Set disabled items for assets
+   * Set disabled items for assets.
+   *
+   * An asset cannot be selected when:
+   * - it is marked as not available to book, or
+   * - it belongs to a kit that is fully added to this booking (those are
+   *   managed via the kits tab), or
+   * - it is in custody while the booking has already started (adding it
+   *   would immediately check it out while a team member still holds it).
+   *   In-custody assets remain selectable for future-dated bookings.
    */
+  const bookingHasStarted =
+    ["ONGOING", "OVERDUE"].includes(booking.status) ||
+    new Date(booking.from) <= new Date();
+
   useEffect(() => {
     const _disabledBulkItems = items.reduce<ListItemData[]>((acc, asset) => {
-      if (!asset.availableToBook || !!asset.kitId) {
+      const isPartOfFullyAddedKit =
+        !!asset.kitId && bookingKitIds.includes(asset.kitId);
+      const isBlockedByCustody = !!asset.custody && bookingHasStarted;
+
+      if (
+        !asset.availableToBook ||
+        isPartOfFullyAddedKit ||
+        isBlockedByCustody
+      ) {
         acc.push(asset);
       }
 
@@ -881,7 +975,7 @@ export default function AddAssetsToNewBooking() {
     }, []);
 
     setDisabledBulkItems(_disabledBulkItems);
-  }, [items, setDisabledBulkItems]);
+  }, [items, setDisabledBulkItems, bookingKitIds, bookingHasStarted]);
 
   useEffect(() => {
     const response = applyTemplateFetcher.data;
@@ -995,7 +1089,7 @@ export default function AddAssetsToNewBooking() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
           <applyTemplateFetcher.Form
             method="post"
-            className="flex flex-col gap-2 rounded border border-gray-200 p-3"
+            className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
           >
             <div>
               <p className="text-sm font-medium text-gray-900">
@@ -1038,7 +1132,7 @@ export default function AddAssetsToNewBooking() {
 
           <createTemplateFetcher.Form
             method="post"
-            className="flex flex-col gap-2 rounded border border-gray-200 p-3"
+            className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
           >
             <div>
               <p className="text-sm font-medium text-gray-900">
@@ -1084,7 +1178,7 @@ export default function AddAssetsToNewBooking() {
         </div>
 
         {templateApplySummary ? (
-          <div className="mt-4 rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm shadow-sm">
             <p className="font-medium text-gray-900">
               Applied {templateApplySummary.templateName}
             </p>
@@ -1227,8 +1321,8 @@ export default function AddAssetsToNewBooking() {
       </TabsContent>
 
       {/* Footer of the modal */}
-      <footer className="item-center mt-auto flex shrink-0 justify-between border-t px-6 py-3">
-        <p>
+      <footer className="item-center mt-auto flex shrink-0 items-center justify-between border-t bg-white px-6 py-3 shadow-[0_-1px_3px_rgba(16,24,40,0.05)]">
+        <p className="font-medium text-gray-700">
           {hasSelectedAllItems ? totalItems : selectedBulkItemsCount} assets
           selected
         </p>
@@ -1320,15 +1414,13 @@ const RowComponent = ({
     location?: Prisma.LocationGetPayload<typeof LOCATION_WITH_HIERARCHY> | null;
   };
 }) => {
-  const selectedBulkItems = useAtomValue(selectedBulkItemsAtom);
-  const { favoriteAssetIds, lastUsersByAssetId } =
+  const { favoriteAssetIds, lastUsersByAssetId, bookingKitIds } =
     useLoaderData<typeof loader>();
   const toggleFavoriteFetcher = useFetcher<typeof action>();
   const lastUser = lastUsersByAssetId[item.id];
-  const checked = selectedBulkItems.some((asset) => asset.id === item.id);
   const { category, tags, location } = item;
-  const isPartOfKit = !!item.kitId;
-  const isAddedThroughKit = isPartOfKit && checked;
+  /** Asset belongs to a kit that is fully added to this booking, so it is managed via the kits tab */
+  const isAddedThroughKit = !!item.kitId && bookingKitIds.includes(item.kitId);
   const isFavorite = favoriteAssetIds.includes(item.id);
   const pendingFavorite =
     toggleFavoriteFetcher.formData?.get("assetId") === item.id

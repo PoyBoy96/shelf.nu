@@ -13,6 +13,7 @@ import type {
   AssetIndexSettings,
   UserOrganization,
   BarcodeType,
+  DeletionReason,
 } from "@prisma/client";
 import {
   AssetStatus,
@@ -45,6 +46,7 @@ import {
   upsertCustomField,
 } from "~/modules/custom-field/service.server";
 import type { CustomFieldDraftPayload } from "~/modules/custom-field/types";
+import { buildDeletedItemRecordData } from "~/modules/deleted-item-record/service.server";
 import {
   createLocationChangeNote,
   createLocationsIfNotExists,
@@ -644,8 +646,17 @@ export async function getAssets(params: {
     if (hideUnavailable) {
       //not disabled for booking
       where.availableToBook = true;
-      //not assigned to team meber
-      where.custody = null;
+      /**
+       * Custody is date-aware: an asset that is in custody right now can
+       * still be reserved for a FUTURE date (custody is expected to be
+       * released by then — checkout will still block if it is not).
+       * Only bookings that have already started must exclude in-custody
+       * assets, because adding them would check them out immediately.
+       */
+      if (bookingFrom && new Date(bookingFrom) <= new Date()) {
+        //not assigned to team member
+        where.custody = null;
+      }
       if (bookingFrom && bookingTo) {
         where.AND = [
           // Rule 1: Exclude assets from RESERVED bookings (all assets unavailable)
@@ -743,11 +754,10 @@ export async function getAssets(params: {
     }
 
     /**
-     * User should only see the assets without kits for hideUnavailable true
+     * Assets that belong to a kit remain visible: they can be pulled
+     * individually into a booking (partial kit pulls). Whole kits are still
+     * added via the kits tab.
      */
-    if (hideUnavailable === true) {
-      where.kit = null;
-    }
 
     if (teamMemberIds && teamMemberIds.length) {
       where.OR = [
@@ -1640,18 +1650,63 @@ export async function updateAsset({
 export async function deleteAsset({
   id,
   organizationId,
-}: Pick<Asset, "id"> & { organizationId: Organization["id"] }) {
+  userId,
+  reason,
+  reasonNote,
+}: Pick<Asset, "id"> & {
+  organizationId: Organization["id"];
+  /** The user performing the deletion (recorded in the deletion history) */
+  userId?: User["id"];
+  /** Why the asset is being deleted (Broken/Missing/Replaced/Other) */
+  reason?: DeletionReason | null;
+  /** Free-text clarification, mainly used when reason is OTHER */
+  reasonNote?: string | null;
+}) {
   try {
-    const deletedAsset = await db.asset.delete({
+    /**
+     * Fetch a snapshot of the asset BEFORE deleting it so the deletion
+     * history retains useful context (category, location, custodian).
+     */
+    const asset = await db.asset.findUniqueOrThrow({
       where: { id, organizationId },
       select: {
+        id: true,
+        title: true,
+        sequentialId: true,
+        category: { select: { name: true } },
+        location: { select: { name: true } },
+        kit: { select: { name: true } },
+        custody: { select: { custodian: { select: { name: true } } } },
         reminders: {
           select: { alertDateTime: true, activeSchedulerReference: true },
         },
       },
     });
 
-    await Promise.all(deletedAsset.reminders.map(cancelAssetReminderScheduler));
+    /** Record + delete atomically so history is never missing for deleted assets */
+    await db.$transaction([
+      db.deletedItemRecord.create({
+        data: buildDeletedItemRecordData({
+          itemType: "ASSET",
+          itemId: asset.id,
+          itemName: asset.title,
+          sequentialId: asset.sequentialId,
+          reason,
+          reasonNote,
+          snapshot: {
+            category: asset.category?.name ?? null,
+            location: asset.location?.name ?? null,
+            kit: asset.kit?.name ?? null,
+            custodian: asset.custody?.custodian?.name ?? null,
+          },
+          deletedById: userId,
+          organizationId,
+        }),
+      }),
+      db.asset.delete({ where: { id, organizationId } }),
+    ]);
+
+    await Promise.all(asset.reminders.map(cancelAssetReminderScheduler));
   } catch (cause) {
     throw new ShelfError({
       cause,
@@ -3380,12 +3435,17 @@ export async function bulkDeleteAssets({
   userId,
   currentSearchParams,
   settings,
+  reason,
+  reasonNote,
 }: {
   assetIds: Asset["id"][];
   organizationId: Asset["organizationId"];
   userId: User["id"];
   currentSearchParams?: string | null;
   settings: AssetIndexSettings;
+  /** Why the assets are being deleted (recorded in the deletion history) */
+  reason?: DeletionReason | null;
+  reasonNote?: string | null;
 }) {
   try {
     // Resolve IDs (works for both simple and advanced mode)
@@ -3397,20 +3457,51 @@ export async function bulkDeleteAssets({
     });
 
     /**
-     * We have to remove the images of assets so we have to make this query first
+     * We have to remove the images of assets so we have to make this query first.
+     * We also grab snapshot details for the deletion history records.
      */
     const assets = await db.asset.findMany({
       where: {
         id: { in: resolvedIds },
         organizationId,
       },
-      select: { id: true, mainImage: true },
+      select: {
+        id: true,
+        mainImage: true,
+        title: true,
+        sequentialId: true,
+        category: { select: { name: true } },
+        location: { select: { name: true } },
+        kit: { select: { name: true } },
+      },
     });
 
     try {
-      await db.asset.deleteMany({
-        where: { id: { in: assets.map((asset) => asset.id) } },
-      });
+      /** Record deletion history + delete atomically */
+      await db.$transaction([
+        db.deletedItemRecord.createMany({
+          data: assets.map((asset) =>
+            buildDeletedItemRecordData({
+              itemType: "ASSET",
+              itemId: asset.id,
+              itemName: asset.title,
+              sequentialId: asset.sequentialId,
+              reason,
+              reasonNote,
+              snapshot: {
+                category: asset.category?.name ?? null,
+                location: asset.location?.name ?? null,
+                kit: asset.kit?.name ?? null,
+              },
+              deletedById: userId,
+              organizationId,
+            })
+          ),
+        }),
+        db.asset.deleteMany({
+          where: { id: { in: assets.map((asset) => asset.id) } },
+        }),
+      ]);
 
       /** Deleting images of the assets (if any) */
       const assetsWithImages = assets.filter((asset) => !!asset.mainImage);

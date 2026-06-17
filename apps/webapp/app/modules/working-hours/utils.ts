@@ -1,4 +1,4 @@
-import { addHours, addDays, format, differenceInHours } from "date-fns";
+import { addHours, addDays, differenceInHours } from "date-fns";
 import { dateForDateTimeInputValue } from "~/utils/date-fns";
 import type {
   DaySchedule,
@@ -91,6 +91,10 @@ export function normalizeWorkingHoursForValidation(
 interface NextWorkingDayResult {
   startTime: Date;
   endTime: Date;
+}
+
+function getUtcDateKey(date: Date | string): string {
+  return new Date(date).toISOString().split("T")[0];
 }
 
 /**
@@ -426,12 +430,12 @@ export function calculateEffectiveEndDate(
 
   // Count closed days between start and original end date
   while (currentDate < originalEndDate) {
-    const dateString = format(currentDate, "yyyy-MM-dd");
+    const dateString = getUtcDateKey(currentDate);
     const dayOfWeek = currentDate.getDay().toString();
 
     // Check for date-specific override first
     const override = workingHoursData.overrides.find((override) => {
-      const overrideDate = format(override.date, "yyyy-MM-dd");
+      const overrideDate = getUtcDateKey(override.date);
       return overrideDate === dateString;
     });
 
@@ -491,12 +495,12 @@ export function calculateBusinessHoursDuration(
     const windowEnd = nextDay > endDate ? endDate : nextDay;
 
     // Check if this day is closed
-    const dateString = format(windowStart, "yyyy-MM-dd");
+    const dateString = getUtcDateKey(windowStart);
     const dayOfWeek = windowStart.getDay().toString();
 
     // Check for date-specific override first
     const override = workingHoursData.overrides.find((override) => {
-      const overrideDate = format(override.date, "yyyy-MM-dd");
+      const overrideDate = getUtcDateKey(override.date);
       return overrideDate === dateString;
     });
 

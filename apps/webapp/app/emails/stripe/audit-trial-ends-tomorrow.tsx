@@ -75,6 +75,7 @@ export const auditTrialEndsTomorrowEmailText = ({
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 
   if (hasPaymentMethod) {
@@ -119,6 +120,7 @@ function AuditTrialEndsTomorrowEmailTemplate({
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 
   return (

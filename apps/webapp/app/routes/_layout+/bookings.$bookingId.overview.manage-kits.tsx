@@ -58,7 +58,7 @@ import { sendBookingUpdatedEmail } from "~/modules/booking/email-helpers";
 import {
   getBooking,
   getDetailedPartialCheckinData,
-  getKitIdsByAssets,
+  getFullyIncludedKitIds,
   removeAssets,
   updateBookingAssets,
   createKitBookingNote,
@@ -67,6 +67,7 @@ import { getPaginatedAndFilterableKits } from "~/modules/kit/service.server";
 import { getUserByID } from "~/modules/user/service.server";
 import { appendToMetaTitle } from "~/utils/append-to-meta-title";
 import { isKitPartiallyCheckedIn } from "~/utils/booking-assets";
+import { isBookingOwnedByUser } from "~/utils/bookings";
 import { getClientHint } from "~/utils/client-hints";
 import { makeShelfError, ShelfError } from "~/utils/error";
 import { isFormProcessing } from "~/utils/form";
@@ -133,9 +134,21 @@ export async function loader({ context, request, params }: LoaderFunctionArgs) {
       request,
     });
 
-    /** Self service can only manage kits for bookings that are DRAFT */
+    /**
+     * Self service can only manage kits for bookings that are DRAFT, unless
+     * they own the booking (creator/custodian) and it is ONGOING/OVERDUE —
+     * then they may still add forgotten kits after the start time.
+     */
+    const isOwnActiveBooking =
+      isBookingOwnedByUser(booking, userId) &&
+      (
+        [BookingStatus.ONGOING, BookingStatus.OVERDUE] as BookingStatus[]
+      ).includes(booking.status);
+
     const cantManageAssetsAsBase =
-      isSelfServiceOrBase && booking.status !== BookingStatus.DRAFT;
+      isSelfServiceOrBase &&
+      booking.status !== BookingStatus.DRAFT &&
+      !isOwnActiveBooking;
 
     /** Changing kits is not allowed at this stage */
     const notAllowedStatus: BookingStatus[] = [
@@ -155,7 +168,11 @@ export async function loader({ context, request, params }: LoaderFunctionArgs) {
       });
     }
 
-    const bookingKitIds = getKitIdsByAssets(booking.assets);
+    /** Only kits that are FULLY included in the booking count as added */
+    const bookingKitIds = await getFullyIncludedKitIds({
+      assets: booking.assets,
+      organizationId,
+    });
 
     const { page, perPage, kits, search, totalKits, totalPages } =
       await getPaginatedAndFilterableKits({
@@ -268,6 +285,8 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
         select: {
           id: true,
           status: true,
+          creatorId: true,
+          custodianUserId: true,
           assets: {
             select: { id: true },
           },
@@ -282,9 +301,20 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
         });
       });
 
-    /** Self service can only manage kits for bookings that are DRAFT */
+    /**
+     * Self service can only manage kits for bookings that are DRAFT, unless
+     * they own the booking and it is ONGOING/OVERDUE.
+     */
+    const isOwnActiveBooking =
+      isBookingOwnedByUser(booking, userId) &&
+      (
+        [BookingStatus.ONGOING, BookingStatus.OVERDUE] as BookingStatus[]
+      ).includes(booking.status);
+
     const cantManageAssetsAsBase =
-      isSelfServiceOrBase && booking.status !== BookingStatus.DRAFT;
+      isSelfServiceOrBase &&
+      booking.status !== BookingStatus.DRAFT &&
+      !isOwnActiveBooking;
 
     /** Changing kits is not allowed at this stage */
     const notAllowedStatus: BookingStatus[] = [
@@ -502,7 +532,10 @@ export default function AddKitsToBooking() {
     [booking]
   );
 
-  const totalAssetsSelected = booking.assets.filter((a) => !a.kitId).length;
+  /** Individually managed assets: standalone assets + partial kit pulls */
+  const totalAssetsSelected = booking.assets.filter(
+    (a) => !a.kitId || !bookingKitIds.includes(a.kitId)
+  ).length;
   const hasUnsavedChanges = selectedBulkItems.length !== bookingKitIds.length;
 
   /**
@@ -612,8 +645,8 @@ export default function AddKitsToBooking() {
       </TabsContent>
 
       {/* Footer of the modal */}
-      <footer className="item-center mt-auto flex shrink-0 justify-between border-t px-6 py-3">
-        <div className="flex flex-col justify-center gap-1">
+      <footer className="item-center mt-auto flex shrink-0 items-center justify-between border-t bg-white px-6 py-3 shadow-[0_-1px_3px_rgba(16,24,40,0.05)]">
+        <div className="flex flex-col justify-center gap-1 font-medium text-gray-700">
           {selectedBulkItems.length} kits selected
         </div>
         <div className="flex gap-3">

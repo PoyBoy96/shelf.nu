@@ -90,6 +90,7 @@ export type FailureReason = {
     | "Note"
     | "Team Member Note"
     | "Audit Image"
+    | "Deleted Item Record"
     // Other kinds of errors
     | "DB"
     | "Request validation"

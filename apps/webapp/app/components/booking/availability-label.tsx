@@ -67,20 +67,23 @@ export function AvailabilityLabel({
   }
 
   /**
-   * Asset is part of a kit
+   * Asset was added to this booking as part of a fully added kit.
+   * It has to be managed from the kits tab.
    */
-  if (isPartOfKit && showKitStatus) {
+  if (isAddedThroughKit) {
     return (
       <AvailabilityBadge
-        badgeText="Part of kit"
-        tooltipTitle="Asset is part of a kit"
-        tooltipContent="Remove the asset from the kit to add it individually."
+        badgeText="Added through kit"
+        tooltipTitle="Asset was added through a kit"
+        tooltipContent="This asset is part of a kit that is fully added to this booking. Manage it from the kits tab."
       />
     );
   }
 
   /**
-   * Has custody
+   * Has custody.
+   * In-custody assets can still be reserved for future dates — they are only
+   * blocked when the booking has already started (see manage-assets).
    */
   if (asset.custody) {
     return (
@@ -88,7 +91,7 @@ export function AvailabilityLabel({
         badgeText={"In custody"}
         tooltipTitle={"Asset is in custody"}
         tooltipContent={
-          "This asset is in custody of a team member making it currently unavailable for bookings."
+          "This asset is in custody of a team member. You can reserve it for a future date, but it cannot be checked out until custody is released."
         }
       />
     );
@@ -189,14 +192,15 @@ export function AvailabilityLabel({
   }
 
   /**
-   * User is viewing all assets and the assets is added in a booking through kit
+   * Asset belongs to a kit but is individually selectable (partial kit pull).
+   * This is informational only — the asset can be added on its own.
    */
-  if (isAddedThroughKit) {
+  if (isPartOfKit && showKitStatus) {
     return (
       <AvailabilityBadge
-        badgeText="Added through kit"
-        tooltipTitle="Asset was added through a kit"
-        tooltipContent="Remove the asset from the kit to add it individually."
+        badgeText="Part of kit"
+        tooltipTitle="Asset is part of a kit"
+        tooltipContent="This asset belongs to a kit. Adding it here books just this item — the rest of the kit stays available."
       />
     );
   }

@@ -32,7 +32,16 @@ import { getQr } from "../qr/service.server";
 // why: testing kit service logic without executing actual database operations
 vitest.mock("~/database/db.server", () => ({
   db: {
-    $transaction: vitest.fn().mockImplementation((callback) => callback(db)),
+    // why: supports both callback-form and array-form transactions used by the service
+    $transaction: vitest
+      .fn()
+      .mockImplementation((arg) =>
+        Array.isArray(arg) ? Promise.all(arg) : arg(db)
+      ),
+    deletedItemRecord: {
+      create: vitest.fn().mockResolvedValue({}),
+      createMany: vitest.fn().mockResolvedValue({ count: 0 }),
+    },
     kit: {
       create: vitest.fn().mockResolvedValue({}),
       update: vitest.fn().mockResolvedValue({}),
@@ -527,24 +536,41 @@ describe("deleteKit", () => {
     vitest.clearAllMocks();
   });
 
-  it("should delete kit successfully", async () => {
-    expect.assertions(2);
+  it("should delete kit successfully and record deletion history", async () => {
+    expect.assertions(3);
+    //@ts-expect-error missing vitest type
+    db.kit.findUniqueOrThrow.mockResolvedValue({
+      id: "kit-1",
+      name: "Test Kit",
+      _count: { assets: 2 },
+      assets: [{ title: "Asset 1" }, { title: "Asset 2" }],
+    });
     //@ts-expect-error missing vitest type
     db.kit.delete.mockResolvedValue(mockKitData);
 
     const result = await deleteKit({
       id: "kit-1",
       organizationId: "org-1",
+      userId: "user-1",
     });
 
     expect(db.kit.delete).toHaveBeenCalledWith({
       where: { id: "kit-1", organizationId: "org-1" },
     });
+    // A deletion history record is created alongside the delete
+    expect(db.deletedItemRecord.create).toHaveBeenCalled();
     expect(result).toEqual(mockKitData);
   });
 
   it("should handle deletion errors", async () => {
     expect.assertions(1);
+    //@ts-expect-error missing vitest type
+    db.kit.findUniqueOrThrow.mockResolvedValue({
+      id: "kit-1",
+      name: "Test Kit",
+      _count: { assets: 0 },
+      assets: [],
+    });
     //@ts-expect-error missing vitest type
     db.kit.delete.mockRejectedValue(new Error("Deletion failed"));
 
@@ -565,8 +591,13 @@ describe("bulkDeleteKits", () => {
   it("should bulk delete kits successfully", async () => {
     expect.assertions(2);
     const kitsToDelete = [
-      { id: "kit-1", image: "image1.jpg" },
-      { id: "kit-2", image: null },
+      {
+        id: "kit-1",
+        image: "image1.jpg",
+        name: "Kit 1",
+        _count: { assets: 1 },
+      },
+      { id: "kit-2", image: null, name: "Kit 2", _count: { assets: 0 } },
     ];
     //@ts-expect-error missing vitest type
     db.kit.findMany.mockResolvedValue(kitsToDelete);
@@ -581,7 +612,12 @@ describe("bulkDeleteKits", () => {
 
     expect(db.kit.findMany).toHaveBeenCalledWith({
       where: { id: { in: ["kit-1", "kit-2"] }, organizationId: "org-1" },
-      select: { id: true, image: true },
+      select: {
+        id: true,
+        image: true,
+        name: true,
+        _count: { select: { assets: true } },
+      },
     });
     expect(db.$transaction).toHaveBeenCalled();
   });

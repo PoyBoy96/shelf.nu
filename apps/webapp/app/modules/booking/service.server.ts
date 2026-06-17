@@ -24,6 +24,7 @@ import { db } from "~/database/db.server";
 import { bookingUpdatesTemplateString } from "~/emails/bookings-updates-template";
 import { sendEmail } from "~/emails/mail.server";
 import type { BookingForEmail } from "~/emails/types";
+import { buildDeletedItemRecordData } from "~/modules/deleted-item-record/service.server";
 import { validateBookingOwnership } from "~/utils/booking-authorization.server";
 import { getStatusClasses, isOneDayEvent } from "~/utils/calendar";
 import {
@@ -3364,6 +3365,40 @@ export async function deleteBooking(
       },
     });
 
+    /**
+     * Record the deletion in the workspace history (best-effort: the booking
+     * is already deleted, so we log failures instead of throwing).
+     */
+    try {
+      await db.deletedItemRecord.create({
+        data: buildDeletedItemRecordData({
+          itemType: "BOOKING",
+          itemId: b.id,
+          itemName: b.name,
+          snapshot: {
+            status: currentBooking.status,
+            from: currentBooking.from?.toISOString() ?? null,
+            to: currentBooking.to?.toISOString() ?? null,
+            custodian: b.custodianUser
+              ? resolveUserDisplayName(b.custodianUser)
+              : b.custodianTeamMember?.name ?? null,
+            assetCount: b._count?.assets ?? b.assets?.length ?? 0,
+          },
+          deletedById: userId,
+          organizationId,
+        }),
+      });
+    } catch (recordError) {
+      Logger.error(
+        new ShelfError({
+          cause: recordError,
+          message: "Failed to record booking deletion in history",
+          label,
+          shouldBeCaptured: false,
+        })
+      );
+    }
+
     // Resolve notification recipients and send personalized emails
     const recipients = await getBookingNotificationRecipients({
       booking: b,
@@ -3711,6 +3746,65 @@ export function getKitIdsByAssets(assets: Pick<Asset, "id" | "kitId">[]) {
   return [...uniqueKitIds];
 }
 
+/**
+ * Returns the ids of kits that are FULLY included in a booking, meaning every
+ * asset of the kit is part of the booking.
+ *
+ * Why this exists: assets that belong to a kit can also be added to a booking
+ * individually (partial kit pulls). In that case the kit itself should NOT be
+ * treated as "added to the booking" — only fully included kits are managed
+ * via the kits tab, while partially pulled kit assets are managed as
+ * individual assets.
+ *
+ * @param assets - The booking's assets (id + kitId)
+ * @param organizationId - Organization scope for the kit lookup
+ * @returns Array of kit ids whose assets are all part of the booking
+ */
+export async function getFullyIncludedKitIds({
+  assets,
+  organizationId,
+}: {
+  assets: Pick<Asset, "id" | "kitId">[];
+  organizationId: Booking["organizationId"];
+}) {
+  const referencedKitIds = getKitIdsByAssets(assets);
+
+  if (referencedKitIds.length === 0) {
+    return [];
+  }
+
+  try {
+    const kitsWithCounts = await db.kit.findMany({
+      where: { id: { in: referencedKitIds }, organizationId },
+      select: { id: true, _count: { select: { assets: true } } },
+    });
+
+    /** Number of each kit's assets that are present in the booking */
+    const bookingAssetCountByKit = assets.reduce<Record<string, number>>(
+      (acc, asset) => {
+        if (asset.kitId) {
+          acc[asset.kitId] = (acc[asset.kitId] ?? 0) + 1;
+        }
+        return acc;
+      },
+      {}
+    );
+
+    return kitsWithCounts
+      .filter(
+        (kit) => (bookingAssetCountByKit[kit.id] ?? 0) >= kit._count.assets
+      )
+      .map((kit) => kit.id);
+  } catch (cause) {
+    throw new ShelfError({
+      cause,
+      message: "Something went wrong while resolving kits for the booking.",
+      additionalData: { organizationId, referencedKitIds },
+      label,
+    });
+  }
+}
+
 export async function getBookingFlags(
   booking: Pick<Booking, "id" | "from" | "to"> & {
     assetIds: Asset["id"][];
@@ -3857,6 +3951,28 @@ export async function bulkDeleteBookings({
     );
 
     await db.$transaction(async (tx) => {
+      /** Record deletion history for all bookings before deleting */
+      await tx.deletedItemRecord.createMany({
+        data: bookings.map((booking) =>
+          buildDeletedItemRecordData({
+            itemType: "BOOKING",
+            itemId: booking.id,
+            itemName: booking.name,
+            snapshot: {
+              status: booking.status,
+              from: booking.from?.toISOString() ?? null,
+              to: booking.to?.toISOString() ?? null,
+              custodian: booking.custodianUser
+                ? resolveUserDisplayName(booking.custodianUser)
+                : booking.custodianTeamMember?.name ?? null,
+              assetCount: booking.assets.length,
+            },
+            deletedById: userId,
+            organizationId,
+          })
+        ),
+      });
+
       /** Deleting all selected bookings */
       await tx.booking.deleteMany({
         where: { id: { in: bookings.map((booking) => booking.id) } },
@@ -4415,6 +4531,43 @@ export async function addScannedAssetsToBooking({
 }) {
   try {
     /**
+     * Server-side validation mirroring manage-assets: when the target booking
+     * is already checked out, assets that are in custody may not be added.
+     * Adding them would mark them CHECKED_OUT while a team member still
+     * holds custody.
+     */
+    const targetBooking = await db.booking.findUniqueOrThrow({
+      where: { id: bookingId, organizationId },
+      select: { id: true, status: true },
+    });
+
+    if (
+      targetBooking.status === BookingStatus.ONGOING ||
+      targetBooking.status === BookingStatus.OVERDUE
+    ) {
+      const assetsInCustody = await db.asset.findMany({
+        where: {
+          id: { in: assetIds },
+          status: AssetStatus.IN_CUSTODY,
+        },
+        select: { id: true, title: true },
+      });
+
+      if (assetsInCustody.length > 0) {
+        throw new ShelfError({
+          cause: null,
+          label,
+          title: "Not allowed. Assets in custody",
+          message: `The following assets are in custody of a team member and cannot be added to an active booking: ${assetsInCustody
+            .map((asset) => asset.title)
+            .join(", ")}. Release custody first.`,
+          additionalData: { assetsInCustody, bookingId },
+          shouldBeCaptured: false,
+        });
+      }
+    }
+
+    /**
      * Step 1: Add assets to booking inside a transaction so we can mirror the
      * status-sync behaviour used in manage-assets.
      */
@@ -4493,10 +4646,18 @@ export async function getExistingBookingDetails(bookingId: string) {
       },
     });
 
-    if (!["DRAFT", "RESERVED"].includes(booking.status!)) {
+    /**
+     * Assets can be added to DRAFT and RESERVED bookings, and also to
+     * ONGOING/OVERDUE bookings (forgotten gear can be added after the start
+     * time — `updateBookingAssets` checks the new assets out immediately).
+     */
+    if (
+      !["DRAFT", "RESERVED", "ONGOING", "OVERDUE"].includes(booking.status!)
+    ) {
       throw new ShelfError({
         cause: null,
-        message: "Booking is not in Draft or Reserved status.",
+        message:
+          "Assets can only be added to Draft, Reserved or Ongoing bookings.",
         label: "Booking",
       });
     }
@@ -4523,14 +4684,10 @@ export async function getAvailableAssetsIdsForBooking(
       select: { status: true, id: true, kitId: true },
     });
 
-    if (selectedAssets.some((asset) => asset.kitId)) {
-      throw new ShelfError({
-        cause: null,
-        message: "Cannot add assets that belong to a kit.",
-        label: "Booking",
-      });
-    }
-
+    /**
+     * Note: assets that belong to a kit can be added individually (partial
+     * kit pulls), so we no longer reject them here.
+     */
     return selectedAssets.map((asset) => asset.id);
   } catch (cause: ShelfError | any) {
     throw new ShelfError({
@@ -4560,6 +4717,36 @@ export async function processBooking(bookingId: string, assetIds: string[]) {
         message: "No assets available.",
         label: "Booking",
       });
+    }
+
+    /**
+     * When the target booking is already checked out, assets that are
+     * currently CHECKED_OUT (in another booking) or IN_CUSTODY cannot be
+     * added: they would immediately be marked as checked out for this
+     * booking while they are physically elsewhere.
+     */
+    if (["ONGOING", "OVERDUE"].includes(bookingInfo.status)) {
+      const blockedAssets = await db.asset.findMany({
+        where: {
+          id: { in: finalAssetIds },
+          status: {
+            in: [AssetStatus.CHECKED_OUT, AssetStatus.IN_CUSTODY],
+          },
+        },
+        select: { id: true, title: true, status: true },
+      });
+
+      if (blockedAssets.length > 0) {
+        throw new ShelfError({
+          cause: null,
+          message: `The following assets are checked out or in custody and cannot be added to an active booking: ${blockedAssets
+            .map((asset) => asset.title)
+            .join(", ")}.`,
+          additionalData: { blockedAssets, bookingId },
+          label: "Booking",
+          shouldBeCaptured: false,
+        });
+      }
     }
 
     return {
@@ -4610,7 +4797,8 @@ export async function loadBookingsData({
     perPage,
     search,
     userId,
-    statuses: ["DRAFT", "RESERVED"],
+    /** ONGOING/OVERDUE included so forgotten gear can be added after the start time */
+    statuses: ["DRAFT", "RESERVED", "ONGOING", "OVERDUE"],
     // Here we just need the bookigns of the current user if they are self service or base, as they can edit only their own bookings
     ...(isSelfServiceOrBase && {
       custodianUserId: userId,

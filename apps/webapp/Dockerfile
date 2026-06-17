@@ -53,4 +53,4 @@ WORKDIR /src/apps/webapp
 
 RUN chmod +x /src/apps/webapp/start.sh
 
-ENTRYPOINT [ "/src/apps/webapp/start.sh" ]
+CMD [ "/src/apps/webapp/start.sh" ]

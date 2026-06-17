@@ -9,7 +9,8 @@ auto_rollback = true
 
 [deploy]
 strategy = "bluegreen"
-release_command = "npx prisma migrate deploy"
+release_command = "./node_modules/.bin/prisma migrate deploy"
+release_command_timeout = "10m"
 
 [env]
 NODE_ENV = "production"

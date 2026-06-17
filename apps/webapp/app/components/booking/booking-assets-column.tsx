@@ -6,6 +6,23 @@ import { useViewportHeight } from "~/hooks/use-viewport-height";
 import { useUserRoleHelper } from "~/hooks/user-user-role-helper";
 import type { BookingPageLoaderData } from "~/routes/_layout+/bookings.$bookingId.overview";
 import type { AssetWithBooking } from "~/routes/_layout+/bookings.$bookingId.overview.manage-assets";
+import { isBookingOwnedByUser } from "~/utils/bookings";
+import { BookingAssetsFilters } from "./booking-assets-filters";
+import { BookingPagination } from "./booking-pagination";
+import KitRow from "./kit-row";
+import ListAssetContent from "./list-asset-content";
+import ListBulkActionsDropdown from "./list-bulk-actions-dropdown";
+import type { LoaderData } from "../list/bulk-actions/bulk-list-header";
+import BulkListHeader from "../list/bulk-actions/bulk-list-header";
+import { EmptyState } from "../list/empty-state";
+import { ListHeader } from "../list/list-header";
+import { ListItem } from "../list/list-item";
+import ListTitle from "../list/list-title";
+import { Button } from "../shared/button";
+import { InfoTooltip } from "../shared/info-tooltip";
+import TextualDivider from "../shared/textual-divider";
+import { Table, Th } from "../table";
+import When from "../when/when";
 
 /**
  * Type assertion helper for booking assets.
@@ -20,22 +37,6 @@ function asEnrichedAssets<T>(assets: T[]): AssetWithBooking[] {
 function asEnrichedAsset<T>(asset: T): AssetWithBooking {
   return asset as unknown as AssetWithBooking;
 }
-import { BookingAssetsFilters } from "./booking-assets-filters";
-import KitRow from "./kit-row";
-import ListAssetContent from "./list-asset-content";
-import ListBulkActionsDropdown from "./list-bulk-actions-dropdown";
-import type { LoaderData } from "../list/bulk-actions/bulk-list-header";
-import BulkListHeader from "../list/bulk-actions/bulk-list-header";
-import { EmptyState } from "../list/empty-state";
-import { ListHeader } from "../list/list-header";
-import { ListItem } from "../list/list-item";
-import ListTitle from "../list/list-title";
-import { Button } from "../shared/button";
-import { InfoTooltip } from "../shared/info-tooltip";
-import TextualDivider from "../shared/textual-divider";
-import { Table, Th } from "../table";
-import { BookingPagination } from "./booking-pagination";
-import When from "../when/when";
 
 export function BookingAssetsColumn() {
   const {
@@ -84,9 +85,27 @@ export function BookingAssetsColumn() {
     [booking.from, booking.to, booking.id]
   );
 
-  // Self service can only manage assets for bookings that are DRAFT
+  /**
+   * Self service / base users can manage assets for DRAFT bookings.
+   * If they own the booking (creator or custodian) they can also manage
+   * assets while it is ONGOING/OVERDUE, so forgotten gear can be added
+   * after the start time without changing the booking dates.
+   */
+  const isOwnActiveBooking =
+    isBookingOwnedByUser(
+      {
+        creatorId: (booking as { creatorId?: string | null }).creatorId,
+        custodianUserId: booking?.custodianUser?.id,
+      },
+      userId
+    ) &&
+    (booking.status === BookingStatus.ONGOING ||
+      booking.status === BookingStatus.OVERDUE);
+
   const cantManageAssetsAsBase =
-    (isBase || isSelfService) && booking.status !== BookingStatus.DRAFT;
+    (isBase || isSelfService) &&
+    booking.status !== BookingStatus.DRAFT &&
+    !isOwnActiveBooking;
 
   const [expandedKits, setExpandedKits] = useState<Record<string, boolean>>({});
 
@@ -129,13 +148,20 @@ export function BookingAssetsColumn() {
   /**
    * Check whether the user can see actions
    * 1. Admin/Owner always can see all
-   * 2. SELF_SERVICE can see actions if they are the custodian of the booking
-   * 3. BASE can see actions if they are the custodian of the booking
+   * 2. SELF_SERVICE can see actions if they are the custodian or creator of the booking
+   * 3. BASE can see actions if they are the custodian or creator of the booking
    */
 
   const canSeeActions =
     !isBaseOrSelfService ||
-    (isBaseOrSelfService && booking?.custodianUser?.id === userId);
+    (isBaseOrSelfService &&
+      isBookingOwnedByUser(
+        {
+          creatorId: (booking as { creatorId?: string | null }).creatorId,
+          custodianUserId: booking?.custodianUser?.id,
+        },
+        userId
+      ));
 
   function itemsGetter(data: LoaderData) {
     return data.items

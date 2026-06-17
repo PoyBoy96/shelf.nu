@@ -26,6 +26,7 @@ import {
   updateBarcodes,
   validateBarcodeUniqueness,
 } from "~/modules/barcode/service.server";
+import { buildDeletedItemRecordData } from "~/modules/deleted-item-record/service.server";
 import { ASSET_MAX_IMAGE_UPLOAD_SIZE } from "~/utils/constants";
 import { updateCookieWithPerPage } from "~/utils/cookies.server";
 import { dateTimeInUnix } from "~/utils/date-time-in-unix";
@@ -688,12 +689,44 @@ export async function getAssetsForKits({
 export async function deleteKit({
   id,
   organizationId,
+  userId,
 }: {
   id: Kit["id"];
   organizationId: Kit["organizationId"];
+  /** The user performing the deletion (recorded in the deletion history) */
+  userId?: User["id"];
 }) {
   try {
-    return await db.kit.delete({ where: { id, organizationId } });
+    /** Snapshot the kit before deletion for the deletion history */
+    const kit = await db.kit.findUniqueOrThrow({
+      where: { id, organizationId },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { assets: true } },
+        assets: { select: { title: true }, take: 50 },
+      },
+    });
+
+    /** Record + delete atomically so history is never missing */
+    const [, deletedKit] = await db.$transaction([
+      db.deletedItemRecord.create({
+        data: buildDeletedItemRecordData({
+          itemType: "KIT",
+          itemId: kit.id,
+          itemName: kit.name,
+          snapshot: {
+            assetCount: kit._count.assets,
+            assets: kit.assets.map((asset) => asset.title),
+          },
+          deletedById: userId,
+          organizationId,
+        }),
+      }),
+      db.kit.delete({ where: { id, organizationId } }),
+    ]);
+
+    return deletedKit;
   } catch (cause) {
     throw new ShelfError({
       cause,
@@ -1011,10 +1044,29 @@ export async function bulkDeleteKits({
     /** We have to remove the images of the kits so we have to make this query */
     const kits = await db.kit.findMany({
       where,
-      select: { id: true, image: true },
+      select: {
+        id: true,
+        image: true,
+        name: true,
+        _count: { select: { assets: true } },
+      },
     });
 
     return await db.$transaction(async (tx) => {
+      /** Record deletion history before deleting */
+      await tx.deletedItemRecord.createMany({
+        data: kits.map((kit) =>
+          buildDeletedItemRecordData({
+            itemType: "KIT",
+            itemId: kit.id,
+            itemName: kit.name,
+            snapshot: { assetCount: kit._count.assets },
+            deletedById: userId,
+            organizationId,
+          })
+        ),
+      });
+
       /** Deleting all kits */
       await tx.kit.deleteMany({
         where: { id: { in: kits.map((kit) => kit.id) } },

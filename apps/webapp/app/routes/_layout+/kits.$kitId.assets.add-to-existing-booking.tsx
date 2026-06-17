@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { AssetStatus } from "@prisma/client";
 import { CalendarCheck } from "lucide-react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import {
@@ -13,6 +14,7 @@ import { Form } from "~/components/custom-form";
 import DynamicSelect from "~/components/dynamic-select/dynamic-select";
 import { Button } from "~/components/shared/button";
 import { DateS } from "~/components/shared/date";
+import { db } from "~/database/db.server";
 
 import {
   getExistingBookingDetails,
@@ -94,24 +96,18 @@ const processBooking = async (
   kitIds: string[] | undefined
 ) => {
   try {
-    let finalAssetIds: string[] = [];
-    let booking;
-    if (kitIds && kitIds.length > 0) {
-      const promises = [
-        getAvailableKitAssetForBooking(kitIds),
-        getExistingBookingDetails(bookingId),
-      ];
-
-      const [assets, bookingDetails] = await Promise.all(promises);
-      finalAssetIds = assets as string[];
-      booking = bookingDetails;
-    } else {
+    if (!kitIds?.length) {
       throw new ShelfError({
         cause: null,
         message: "Invalid operation.",
         label: "Booking",
       });
     }
+
+    const [finalAssetIds, bookingInfo] = await Promise.all([
+      getAvailableKitAssetForBooking(kitIds),
+      getExistingBookingDetails(bookingId),
+    ]);
 
     if (finalAssetIds.length === 0) {
       throw new ShelfError({
@@ -123,7 +119,7 @@ const processBooking = async (
 
     return {
       finalAssetIds,
-      bookingInfo: booking,
+      bookingInfo,
     };
   } catch (cause: any) {
     throw new ShelfError({
@@ -178,6 +174,32 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
         shouldBeCaptured: false,
       });
     }
+    /**
+     * When the target booking is already checked out, kit assets that are
+     * CHECKED_OUT elsewhere or IN_CUSTODY cannot be added — they would be
+     * marked as checked out for this booking while physically elsewhere.
+     */
+    if (["ONGOING", "OVERDUE"].includes(bookingInfo.status)) {
+      const blockedAssets = await db.asset.findMany({
+        where: {
+          id: { in: finalAssetIds },
+          status: { in: [AssetStatus.CHECKED_OUT, AssetStatus.IN_CUSTODY] },
+        },
+        select: { id: true, title: true },
+      });
+
+      if (blockedAssets.length > 0) {
+        throw new ShelfError({
+          cause: null,
+          message: `Some assets in this kit are checked out or in custody and cannot be added to an active booking: ${blockedAssets
+            .map((asset) => asset.title)
+            .join(", ")}.`,
+          label: "Booking",
+          shouldBeCaptured: false,
+        });
+      }
+    }
+
     const user = await getUserByID(authSession.userId, {
       select: {
         id: true,
@@ -191,6 +213,8 @@ export async function action({ context, request, params }: ActionFunctionArgs) {
       id: bookingId,
       organizationId,
       assetIds: finalAssetIds,
+      /** Pass kit ids so kit statuses are synced when the booking is active */
+      kitIds,
       userId,
     });
 
@@ -235,7 +259,10 @@ export default function ExistingBooking() {
   const transition = useNavigation();
   const disabled = isFormProcessing(transition.state);
   function isValidBooking(booking: any) {
-    return booking && ["RESERVED", "DRAFT"].includes(booking.status);
+    return (
+      booking &&
+      ["RESERVED", "DRAFT", "ONGOING", "OVERDUE"].includes(booking.status)
+    );
   }
 
   return (
@@ -247,8 +274,8 @@ export default function ExistingBooking() {
         <div className="mb-5">
           <h3>Add to Existing Booking</h3>
           <div>
-            You can only add an asset to bookings that are in Draft or Reserved
-            State.
+            You can add a kit to bookings that are in Draft, Reserved or Ongoing
+            state. Kits added to an ongoing booking are checked out immediately.
           </div>
         </div>
         {ids?.map((item, i) => (
@@ -287,8 +314,9 @@ export default function ExistingBooking() {
             }
           />
           <div className="mt-2 text-gray-500">
-            Only <span className="font-medium text-gray-600">Draft</span> and{" "}
-            <span className="font-medium text-gray-600">Reserved</span> bookings
+            Only <span className="font-medium text-gray-600">Draft</span>,{" "}
+            <span className="font-medium text-gray-600">Reserved</span> and{" "}
+            <span className="font-medium text-gray-600">Ongoing</span> bookings
             are visible
           </div>
         </div>

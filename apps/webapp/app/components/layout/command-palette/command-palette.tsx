@@ -1,4 +1,3 @@
-import type { ComponentType, SVGProps } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Fuse from "fuse.js";
 import {
@@ -15,6 +14,7 @@ import {
   UserIcon,
   UserPlus2Icon,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useNavigate, useRouteLoaderData } from "react-router";
 
 import {
@@ -114,7 +114,7 @@ type QuickCommand = {
   description?: string;
   href: string;
   keywords?: string[];
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  icon: LucideIcon;
   isVisible?: (context: CommandContext) => boolean;
 };
 

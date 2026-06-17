@@ -1,4 +1,5 @@
 import PgBoss from "pg-boss";
+import { Logger } from "./logger";
 import { DATABASE_URL, DIRECT_URL, NODE_ENV } from "../utils/env";
 
 type SchedulerWithFlags = PgBoss & {
@@ -41,7 +42,7 @@ function attachSchedulerErrorHandler(instance: PgBoss) {
 
   schedulerWithFlags.__shelfErrorHandlerAttached = true;
   instance.on("error", (error) => {
-    console.error("[scheduler] pg-boss error", error);
+    Logger.warn("[scheduler] pg-boss error", error);
   });
 }
 

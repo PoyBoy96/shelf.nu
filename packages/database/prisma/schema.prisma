@@ -34,21 +34,21 @@ model Image {
 }
 
 model User {
-  id                     String  @id @default(cuid())
-  email                  String  @unique
-  username               String  @unique @default(cuid())
+  id                     String    @id @default(cuid())
+  email                  String    @unique
+  username               String    @unique @default(cuid())
   firstName              String?
   lastName               String?
   displayName            String?
   profilePicture         String?
-  usedFreeTrial          Boolean @default(false)
-  onboarded              Boolean @default(false)
-  customerId             String? @unique // Stripe customer id
-  sso                    Boolean @default(false)
-  createdWithInvite      Boolean @default(false) // Set to true if the user was created by being invited to a workspace
-  skipSubscriptionCheck  Boolean @default(false) // Set to true if the user has opted out of subscription checks
-  hasUnpaidInvoice       Boolean @default(false) // Set via Stripe webhooks when invoice payment fails
-  warnForNoPaymentMethod Boolean @default(false) // Set when subscription is transferred to a user without a payment method
+  usedFreeTrial          Boolean   @default(false)
+  onboarded              Boolean   @default(false)
+  customerId             String?   @unique // Stripe customer id
+  sso                    Boolean   @default(false)
+  createdWithInvite      Boolean   @default(false) // Set to true if the user was created by being invited to a workspace
+  skipSubscriptionCheck  Boolean   @default(false) // Set to true if the user has opted out of subscription checks
+  hasUnpaidInvoice       Boolean   @default(false) // Set via Stripe webhooks when invoice payment fails
+  warnForNoPaymentMethod Boolean   @default(false) // Set when subscription is transferred to a user without a payment method
   theme                  UserTheme @default(dark)
 
   // Last selected organization for cross-device workspace persistence
@@ -120,6 +120,9 @@ model User {
 
   // Admin notes authored on team member profiles
   teamMemberNotesAuthored TeamMemberNote[] @relation("TeamMemberNoteAuthor")
+
+  // Deletion history records created by this user
+  deletedItemRecords DeletedItemRecord[] @relation("DeletedItemRecordActor")
 
   @@unique([email, username])
   @@index([firstName, lastName])
@@ -766,10 +769,10 @@ model Organization {
   workspaceDisabled Boolean @default(false) // If true, the workspace is disabled and the user cannot access it
 
   // Workspace deletion lifecycle. Archived/deleting workspaces are hidden from normal workspace resolution.
-  archivedAt              DateTime?
-  deletionScheduledFor    DateTime?
-  deletionRequestedById   String?
-  deletionRequestedAt     DateTime?
+  archivedAt            DateTime?
+  deletionScheduledFor  DateTime?
+  deletionRequestedById String?
+  deletionRequestedAt   DateTime?
 
   locations         Location[]
   categories        Category[]
@@ -794,9 +797,10 @@ model Organization {
   auditSessions AuditSession[]
   auditImages   AuditImage[]
 
-  usersWithLastSelected User[]           @relation("lastSelectedOrg")
+  usersWithLastSelected User[]              @relation("lastSelectedOrg")
   roleChangeLogs        RoleChangeLog[]
   teamMemberNotes       TeamMemberNote[]
+  deletedItemRecords    DeletedItemRecord[]
 
   // Migration flag to track if sequential IDs have been generated for this organization's existing assets
   hasSequentialIdsMigrated Boolean @default(false)
@@ -1767,4 +1771,55 @@ model RoleChangeLog {
 
   @@index([userId, organizationId])
   @@index([organizationId, createdAt])
+}
+
+// The kind of item a deletion history record refers to
+enum DeletedItemType {
+  ASSET
+  KIT
+  BOOKING
+}
+
+// Why an item was deleted (chosen by the user in the delete dialog)
+enum DeletionReason {
+  BROKEN
+  MISSING
+  REPLACED
+  OTHER
+}
+
+/// History record for deleted items (assets, kits, bookings).
+/// Keeps a permanent trace of what was removed from the workspace, by whom,
+/// when and why, together with a JSON snapshot of useful details (category,
+/// location, custodian, booking period, etc.) for future reference.
+model DeletedItemRecord {
+  id String @id @default(cuid())
+
+  itemType     DeletedItemType
+  /// The id the item had before deletion (not a FK — the row is gone)
+  itemId       String
+  itemName     String
+  /// Human readable identifier like the asset's sequential id (SAM-123)
+  sequentialId String?
+
+  reason     DeletionReason?
+  /// Free-text clarification, mainly used when reason is OTHER
+  reasonNote String?
+
+  /// JSON snapshot of details worth keeping (category, location, custodian,
+  /// booking period, asset count, etc.)
+  snapshot Json?
+
+  // Who deleted the item. SetNull so history survives user deletion.
+  deletedBy   User?   @relation("DeletedItemRecordActor", fields: [deletedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  deletedById String?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  organizationId String
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, itemType])
+  @@index([deletedById])
 }

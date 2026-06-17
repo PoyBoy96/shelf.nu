@@ -93,9 +93,15 @@ export default defineConfig(({ mode }) => {
     },
     envDir: workspaceRoot,
     ssr: {
-      noExternal: ["@shelf/database"],
+      noExternal: ["@shelf/database", /^@radix-ui\//],
     },
     resolve: {
+      // Force a single copy of React across Vite's client and SSR
+      // environments. With the experimental `v8_viteEnvironmentApi` (see
+      // react-router.config.ts) the server render can otherwise resolve a
+      // second React instance, producing "Invalid hook call / more than one
+      // copy of React" 500s during SSR in dev.
+      dedupe: ["react", "react-dom"],
       alias: {
         ".prisma/client/index-browser": prismaClientIndexBrowser,
         // Use lottie_light version to avoid eval warnings

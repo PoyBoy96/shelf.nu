@@ -1,5 +1,8 @@
-import "@testing-library/jest-dom/vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { expect } from "vitest";
 import { server } from "./mocks";
+
+expect.extend(matchers);
 
 declare global {
   // Let React know this environment supports act() (Vitest + happy-dom)

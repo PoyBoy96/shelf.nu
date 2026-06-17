@@ -200,10 +200,17 @@ export async function action({ context, request }: ActionFunctionArgs) {
 
     switch (intent) {
       case "bulk-delete": {
-        const { assetIds, currentSearchParams } = parseData(
+        const { assetIds, currentSearchParams, deletionReason } = parseData(
           formData,
           z
-            .object({ assetIds: z.array(z.string()).min(1) })
+            .object({
+              assetIds: z.array(z.string()).min(1),
+              /** Recorded in the deletion history */
+              deletionReason: z.preprocess(
+                (value) => (value === "" || value == null ? undefined : value),
+                z.enum(["BROKEN", "MISSING", "REPLACED", "OTHER"]).optional()
+              ),
+            })
             .and(CurrentSearchParamsSchema)
         );
 
@@ -213,6 +220,7 @@ export async function action({ context, request }: ActionFunctionArgs) {
           userId,
           currentSearchParams,
           settings,
+          reason: deletionReason,
         });
 
         sendNotification({

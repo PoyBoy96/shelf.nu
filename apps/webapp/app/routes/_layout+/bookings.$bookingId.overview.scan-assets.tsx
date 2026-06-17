@@ -73,7 +73,11 @@ export async function loader({ context, request, params }: LoaderFunctionArgs) {
       request,
     });
 
-    const canManageAssets = canUserManageBookingAssets(booking, isSelfService);
+    const canManageAssets = canUserManageBookingAssets(
+      booking,
+      isSelfService,
+      userId
+    );
 
     if (!canManageAssets) {
       throw new ShelfError({

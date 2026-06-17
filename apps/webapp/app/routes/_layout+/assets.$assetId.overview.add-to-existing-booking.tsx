@@ -171,7 +171,10 @@ export default function ExistingBooking() {
   const disabled = isFormProcessing(transition.state);
 
   function isValidBooking(booking: any) {
-    return booking && ["RESERVED", "DRAFT"].includes(booking.status);
+    return (
+      booking &&
+      ["RESERVED", "DRAFT", "ONGOING", "OVERDUE"].includes(booking.status)
+    );
   }
 
   return (
@@ -183,8 +186,9 @@ export default function ExistingBooking() {
         <div className="mb-5">
           <h3>Add to Existing Booking</h3>
           <div>
-            You can only add an asset to bookings that are in Draft or Reserved
-            State.
+            You can add an asset to bookings that are in Draft, Reserved or
+            Ongoing state. Assets added to an ongoing booking are checked out
+            immediately.
           </div>
         </div>
         {ids?.map((item, i) => (
@@ -230,8 +234,9 @@ export default function ExistingBooking() {
             }
           />
           <div className="mt-2 text-gray-500">
-            Only <span className="font-medium text-gray-600">Draft</span> and{" "}
-            <span className="font-medium text-gray-600">Reserved</span> bookings
+            Only <span className="font-medium text-gray-600">Draft</span>,{" "}
+            <span className="font-medium text-gray-600">Reserved</span> and{" "}
+            <span className="font-medium text-gray-600">Ongoing</span> bookings
             are visible
           </div>
         </div>

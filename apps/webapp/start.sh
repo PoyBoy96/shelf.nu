@@ -1,6 +1,6 @@
 #!/bin/sh -ex
 
-# Fly.io Dockerfile entrypoint (configured in fly.toml).
+# Fly.io Dockerfile command (configured in fly.toml).
 #
 # NOTE: We call `node` directly instead of `pnpm run start` because the
 # production Docker image does not include pnpm-workspace.yaml. Without it,

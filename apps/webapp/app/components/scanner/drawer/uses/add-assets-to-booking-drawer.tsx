@@ -91,10 +91,6 @@ export default function AddAssetsToBookingDrawer({
     .filter((asset) => booking.assets.some((a) => a?.id === asset.id))
     .map((a) => !!a && a.id);
 
-  const assetsPartOfKitIds = assets
-    .filter((asset) => !!asset && asset.kitId && asset.id)
-    .map((asset) => asset.id);
-
   const unavailableAssetsIds = assets
     .filter((asset) => !asset.availableToBook)
     .map((a) => !!a && a.id);
@@ -131,6 +127,18 @@ export default function AddAssetsToBookingDrawer({
     .map(([qrId]) => qrId);
   const tryingToAddCheckedOutKits =
     checkedOutKitsIds.length > 0 &&
+    ["ONGOING", "OVERDUE"].includes(booking.status);
+
+  /**
+   * Assets in custody cannot be added to an active booking: they would be
+   * marked CHECKED_OUT while a team member still holds custody.
+   * They remain allowed for not-yet-started bookings (future reservations).
+   */
+  const assetsInCustodyIds = assets
+    .filter((asset) => asset.status === AssetStatus.IN_CUSTODY)
+    .map((asset) => asset.id);
+  const tryingToAddCustodyAssets =
+    assetsInCustodyIds.length > 0 &&
     ["ONGOING", "OVERDUE"].includes(booking.status);
 
   // Create blockers configuration
@@ -180,16 +188,16 @@ export default function AddAssetsToBookingDrawer({
       onResolve: () => removeAssetsFromList(assetsAlreadyAddedIds),
     },
     {
-      condition: assetsPartOfKitIds.length > 0,
-      count: assetsPartOfKitIds.length,
+      condition: tryingToAddCustodyAssets,
+      count: assetsInCustodyIds.length,
       message: (count: number) => (
         <>
-          <strong>{`${count} asset${count > 1 ? "s" : ""} `}</strong> are part
-          of a kit.
+          <strong>{`${count} asset${count > 1 ? "s are" : " is"}`}</strong> in
+          custody and cannot be added to a checked-out booking.
         </>
       ),
-      description: "Note: Scan Kit QR to add the full kit",
-      onResolve: () => removeAssetsFromList(assetsPartOfKitIds),
+      description: "Release custody first or remove the assets from the list.",
+      onResolve: () => removeAssetsFromList(assetsInCustodyIds),
     },
     {
       condition: kitsWithUnavailableAssets.length > 0,
@@ -220,7 +228,7 @@ export default function AddAssetsToBookingDrawer({
     onResolveAll: () => {
       removeAssetsFromList([
         ...assetsAlreadyAddedIds,
-        ...assetsPartOfKitIds,
+        ...assetsInCustodyIds,
         ...unavailableAssetsIds,
         ...checkedOutAssetsIds,
       ]);
@@ -285,7 +293,24 @@ export function AssetRow({ asset }: { asset: AssetFromQr }) {
   // Use a combination of standard presets and custom configurations
   const availabilityConfigs = [
     assetLabelPresets.unavailable(!asset.availableToBook),
-    assetLabelPresets.partOfKit(!!asset.kitId),
+    // Informational only: kit assets can be added individually to bookings
+    {
+      condition: !!asset.kitId,
+      badgeText: "Part of kit",
+      tooltipTitle: "Asset is part of a kit",
+      tooltipContent:
+        "Adding it here books just this item — the rest of the kit stays available.",
+      priority: 60,
+    },
+    // Blocking: in-custody assets can't go into a checked-out booking
+    {
+      condition: bookingIsCheckedOut && asset.status === AssetStatus.IN_CUSTODY,
+      badgeText: "In custody",
+      tooltipTitle: "Asset is in custody",
+      tooltipContent:
+        "This asset is in custody and cannot be added to a checked-out booking.",
+      priority: 85,
+    },
     // Custom preset for "already in this booking"
     {
       condition: booking.assets.some((a) => a?.id === asset.id),

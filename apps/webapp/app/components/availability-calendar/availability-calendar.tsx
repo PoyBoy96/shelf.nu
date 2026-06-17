@@ -7,7 +7,6 @@ import type {
 } from "@fullcalendar/resource/index.js";
 import resourceTimelinePlugin from "@fullcalendar/resource-timeline";
 import { useLoaderData } from "react-router";
-import { ClientOnly } from "remix-utils/client-only";
 import { CalendarNavigation } from "~/components/calendar/calendar-navigation";
 import renderEventCard from "~/components/calendar/event-card";
 import TitleContainer from "~/components/calendar/title-container";
@@ -44,6 +43,7 @@ export default function AvailabilityCalendar({
     useLoaderData<AssetIndexLoaderData>();
   const { singular, plural } = modelName;
   const calendarRef = useRef<FullCalendar>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [startingDay, endingDay] = getWeekStartingAndEndingDates(new Date());
 
   const [calendarHeader, setCalendarHeader] = useState<{
@@ -92,6 +92,9 @@ export default function AvailabilityCalendar({
 
   // Cleanup timers on unmount
   useEffect(() => cleanup, [cleanup]);
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   return (
     <div>
@@ -122,107 +125,105 @@ export default function AvailabilityCalendar({
 
       {/* hellow rld */}
       <div className="relative">
-        <ClientOnly fallback={<CalendarLoadingFallback />}>
-          {() => (
-            <FullCalendar
-              ref={calendarRef}
-              height="auto"
-              timeZone={timeZone}
-              nowIndicator
-              slotEventOverlap
-              eventTimeFormat={{
-                hour: "numeric",
-                minute: "2-digit",
-                meridiem: "short",
-              }}
-              eventMouseEnter={handleEventMouseEnter("resourceTimelineMonth")}
-              eventMouseLeave={handleEventMouseLeave("resourceTimelineMonth")}
-              eventClick={handleEventClick}
-              resourceOrder="none"
-              plugins={[resourceTimelinePlugin]}
-              schedulerLicenseKey={FULL_CALENDAR_LICENSE_KEY}
-              initialView={DEFAULT_CALENDAR_VIEW}
-              headerToolbar={false}
-              resources={resources}
-              events={events}
-              resourceAreaHeaderContent={
-                <div className="px-2 py-1">
-                  <div
-                    className={tw(
-                      "text-left text-text-sm font-semibold capitalize text-gray-900"
-                    )}
-                  >
-                    {plural}
-                  </div>
-                  <div>
-                    {perPage < totalItems ? (
-                      <p>
-                        {items.length} {items.length > 1 ? plural : singular}{" "}
-                        <span className="text-gray-400">
-                          out of {totalItems}
-                        </span>
-                      </p>
-                    ) : (
-                      <p>
-                        <span>
-                          {totalItems} {items.length === 1 ? singular : plural}
-                        </span>
-                      </p>
-                    )}
-                  </div>
+        {isHydrated ? (
+          <FullCalendar
+            ref={calendarRef}
+            height="auto"
+            timeZone={timeZone}
+            nowIndicator
+            slotEventOverlap
+            eventTimeFormat={{
+              hour: "numeric",
+              minute: "2-digit",
+              meridiem: "short",
+            }}
+            eventMouseEnter={handleEventMouseEnter("resourceTimelineMonth")}
+            eventMouseLeave={handleEventMouseLeave("resourceTimelineMonth")}
+            eventClick={handleEventClick}
+            resourceOrder="none"
+            plugins={[resourceTimelinePlugin]}
+            schedulerLicenseKey={FULL_CALENDAR_LICENSE_KEY}
+            initialView={DEFAULT_CALENDAR_VIEW}
+            headerToolbar={false}
+            resources={resources}
+            events={events}
+            resourceAreaHeaderContent={
+              <div className="px-2 py-1">
+                <div
+                  className={tw(
+                    "text-left text-text-sm font-semibold capitalize text-gray-900"
+                  )}
+                >
+                  {plural}
                 </div>
-              }
-              resourceAreaHeaderClassNames="text-md font-semibold text-gray-900"
-              views={{
-                resourceTimelineMonth: {
-                  slotLabelFormat: [
-                    { month: "long", year: "numeric" },
-                    { weekday: "short", day: "2-digit" },
-                  ],
-                },
-                resourceTimelineWeek: {
-                  slotLabelFormat: [
-                    { weekday: "long", month: "short", day: "numeric" },
-                    { hour: "numeric", meridiem: "short" },
-                  ],
-                },
-                resourceTimelineDay: {
-                  slotLabelFormat: [
-                    { weekday: "short", month: "short", day: "numeric" },
-                    { hour: "numeric", minute: "2-digit", meridiem: "short" },
-                  ],
-                },
-              }}
-              slotLabelFormat={[
-                { month: "long", year: "numeric" },
-                { weekday: "short", day: "2-digit" },
-              ]}
-              slotLabelClassNames="font-normal text-gray-600"
-              slotMinWidth={100}
-              resourceLabelContent={resourceLabelContent}
-              eventContent={renderEventCard}
-              eventClassNames={(eventInfo) => {
-                const viewType = eventInfo.view.type;
-                const isOneDay = isOneDayEvent(
-                  eventInfo.event.start,
-                  eventInfo.event.end
-                );
+                <div>
+                  {perPage < totalItems ? (
+                    <p>
+                      {items.length} {items.length > 1 ? plural : singular}{" "}
+                      <span className="text-gray-400">out of {totalItems}</span>
+                    </p>
+                  ) : (
+                    <p>
+                      <span>
+                        {totalItems} {items.length === 1 ? singular : plural}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            }
+            resourceAreaHeaderClassNames="text-md font-semibold text-gray-900"
+            views={{
+              resourceTimelineMonth: {
+                slotLabelFormat: [
+                  { month: "long", year: "numeric" },
+                  { weekday: "short", day: "2-digit" },
+                ],
+              },
+              resourceTimelineWeek: {
+                slotLabelFormat: [
+                  { weekday: "long", month: "short", day: "numeric" },
+                  { hour: "numeric", meridiem: "short" },
+                ],
+              },
+              resourceTimelineDay: {
+                slotLabelFormat: [
+                  { weekday: "short", month: "short", day: "numeric" },
+                  { hour: "numeric", minute: "2-digit", meridiem: "short" },
+                ],
+              },
+            }}
+            slotLabelFormat={[
+              { month: "long", year: "numeric" },
+              { weekday: "short", day: "2-digit" },
+            ]}
+            slotLabelClassNames="font-normal text-gray-600"
+            slotMinWidth={100}
+            resourceLabelContent={resourceLabelContent}
+            eventContent={renderEventCard}
+            eventClassNames={(eventInfo) => {
+              const viewType = eventInfo.view.type;
+              const isOneDay = isOneDayEvent(
+                eventInfo.event.start,
+                eventInfo.event.end
+              );
 
-                return getStatusClasses(
-                  eventInfo.event.extendedProps.status,
-                  isOneDay,
-                  viewType
-                );
-              }}
-              nowIndicatorDidMount={handleNowIndicatorDidMount}
-              viewDidMount={handleViewDidMount}
-              datesSet={handleDatesSet}
-            />
-          )}
-        </ClientOnly>
+              return getStatusClasses(
+                eventInfo.event.extendedProps.status,
+                isOneDay,
+                viewType
+              );
+            }}
+            nowIndicatorDidMount={handleNowIndicatorDidMount}
+            viewDidMount={handleViewDidMount}
+            datesSet={handleDatesSet}
+          />
+        ) : (
+          <CalendarLoadingFallback />
+        )}
 
         {/* Loading Overlay */}
-        {!isCalendarReady && <CalendarLoadingFallback />}
+        {isHydrated && !isCalendarReady && <CalendarLoadingFallback />}
       </div>
     </div>
   );

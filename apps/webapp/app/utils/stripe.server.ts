@@ -804,6 +804,7 @@ export async function getInvoiceNotificationData({
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: "UTC",
       })
     : null;
 

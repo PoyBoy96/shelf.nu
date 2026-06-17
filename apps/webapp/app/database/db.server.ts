@@ -2,6 +2,7 @@ import { createDatabaseClient } from "@shelf/database";
 import type { ExtendedPrismaClient } from "@shelf/database";
 
 import { DIRECT_URL, NODE_ENV } from "../utils/env";
+import { Logger } from "../utils/logger";
 
 function getDevDatabaseUrl() {
   if (!DIRECT_URL) return undefined;
@@ -32,7 +33,7 @@ if (NODE_ENV === "production") {
   if (!global.__db__) {
     global.__db__ = createDatabaseClient(getDevDatabaseUrl());
     void global.__db__.$connect().catch((error) => {
-      console.error("[db] initial connect failed", error);
+      Logger.warn("[db] initial connect failed", error);
     });
   }
   db = global.__db__;
